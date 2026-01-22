@@ -28,10 +28,10 @@ const Split = ({ children, content, ...rest }: SplitProps) => {
                     />
                     <div className="text-center max-w-[550px]">
                         <h1 className="text-neutral">
-                            Admin panel yaratishning eng oson yo'li
+                            Xat yaratishning eng oson yo'li
                         </h1>
                         <p className="text-neutral opacity-80 mx-auto mt-8 font-semibold">
-                            Ecme bilan loyihalarni boshqarishda qulaylikni his
+                            Xat Hippo.uz bilan loyihalarni boshqarishda qulaylikni his
                             eting. Ish jarayoningizni soddalashtiring va bizning
                             kuchli hamda tushunarli vositalarimiz yordamida
                             maqsadlaringizga samarali erishing.
