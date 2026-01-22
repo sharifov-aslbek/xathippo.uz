@@ -32,7 +32,7 @@ import { useAccountStore } from '@/store/accountStore'
 import { useEImzoStore } from '@/store/eImzoStore'
 
 // --- Custom Components ---
-import MissingSign from '@/components/shared/MissingSign'
+import MissingSign from 'src/components/shared/MissingSign'
 
 const BASE_URL = import.meta.env.VITE_BASE_URL || 'https://tezdoc.kcloud.uz/api'
 
