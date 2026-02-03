@@ -115,6 +115,18 @@ const branchRoute: Routes = [
         authority: [],
     },
     {
+        key: 'worker.myorg',
+        path: '/worker/organization',
+        component: lazy(() => import('@/views/worker/MyOrganization/index')),
+        authority: [],
+    },
+    {
+        key: 'worker.mybranch',
+        path: '/worker/branches',
+        component: lazy(() => import('@/views/worker/MyBranch/index')),
+        authority: [],
+    },
+    {
         key: 'organization.branch.worker',
         path: '/branch/workers',
         component: lazy(
@@ -131,9 +143,21 @@ const branchRoute: Routes = [
     {
         key: 'mail.edit',
         path: '/mail/edit/:id',
-        component: lazy(() => import("@/views/mail/MailEdit")),
+        component: lazy(() => import('@/views/mail/MailEdit')),
         authority: [],
-    }
+    },
+    {
+        key: 'template.crud',
+        path: '/template',
+        component: lazy(() => import('@/views/template/TemplateList')),
+        authority: [],
+    },
+    {
+        key: 'signers',
+        path: '/signers',
+        component: lazy(() => import('@/views/signers/Signers')),
+        authority: [],
+    },
 ]
 
 export default branchRoute

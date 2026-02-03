@@ -4,11 +4,11 @@ import {
     HiOutlineSearch,
     HiOutlinePlus,
     HiOutlineDocumentText,
+    HiOutlineDownload,
 } from 'react-icons/hi'
+import * as XLSX from 'xlsx'
 
 import Table from '@/components/ui/Table'
-const { Tr, Th, Td, THead, TBody } = Table
-
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
@@ -19,19 +19,25 @@ import Spinner from '@/components/ui/Spinner'
 import Card from '@/components/ui/Card'
 import Notification from '@/components/ui/Notification'
 import toast from '@/components/ui/toast'
+import Pagination from '@/components/ui/Pagination'
 import axios from 'axios'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
 import { useMailStore } from '@/store/mailStore'
 import { useAccountStore } from '@/store/accountStore'
 
+const { Tr, Th, Td, THead, TBody } = Table
+
 // --- Types ---
 type Option = { value: string | number; label: string }
 
 const BASE_URL = import.meta.env.VITE_BASE_URL || 'https://tezdoc.kcloud.uz/api'
 
-// --- Helper Component: Status Tag ---
+// =========================================================
+// ✅ FIX: THIS COMPONENT WAS MISSING OR UNDEFINED
+// =========================================================
 const StatusTag = ({ row }: { row: any }) => {
+    // 1. If Draft
     if (!row.isSend) {
         return (
             <Tag className="bg-gray-100 text-gray-600 border-0 rounded-full">
@@ -40,6 +46,7 @@ const StatusTag = ({ row }: { row: any }) => {
         )
     }
 
+    // 2. If Sent, check delivery status
     if (row.activePerformId != null && row.activePerform != null) {
         const performType = row.activePerform.performType
         let label = ''
@@ -67,13 +74,18 @@ const StatusTag = ({ row }: { row: any }) => {
                 label = 'Rad etildi'
                 className = 'bg-red-100 text-red-600 border-0 rounded-full'
                 break
+            case 'NotAtHome':
+                label = "Uyda yo'q"
+                className = 'bg-gray-100 text-gray-600 border-0 rounded-full'
+                break
             default:
-                label = "Ma'lumot yo'q"
-                className = 'bg-gray-100 text-gray-500 border-0 rounded-full'
+                label = 'Jarayonda'
+                className = 'bg-blue-50 text-blue-500 border-0 rounded-full'
         }
         return <Tag className={className}>{label}</Tag>
     }
 
+    // 3. Fallback (Sent but no perform status yet)
     return (
         <Tag className="bg-blue-100 text-blue-600 border-0 rounded-full">
             Yuborilgan
@@ -81,43 +93,46 @@ const StatusTag = ({ row }: { row: any }) => {
     )
 }
 
+// =========================================================
+// MAIN COMPONENT
+// =========================================================
 const MailList = () => {
     const navigate = useNavigate()
 
-    // Stores
-    const { mails, isLoading, getAllMails, sendMail } = useMailStore()
+    // Store
+    const { mails, totalMails, isLoading, getAllMails, exportExcel } =
+        useMailStore()
     const token = useAccountStore((state) => state.userProfile?.token)
 
-    // --- Filter States ---
+    // --- State ---
+    const [pageIndex, setPageIndex] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [isExporting, setIsExporting] = useState(false)
+
+    // Filters
     const [filterStatus, setFilterStatus] = useState<Option | null>(null)
     const [filterStartDate, setFilterStartDate] = useState<Date | null>(null)
     const [filterEndDate, setFilterEndDate] = useState<Date | null>(null)
     const [filterRegion, setFilterRegion] = useState<Option | null>(null)
     const [filterArea, setFilterArea] = useState<Option | null>(null)
-
     const [filterSender, setFilterSender] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
 
-    // --- Data Options States ---
+    // Options
     const [regionOptions, setRegionOptions] = useState<Option[]>([])
     const [areaOptions, setAreaOptions] = useState<Option[]>([])
     const [loadingRegions, setLoadingRegions] = useState(false)
     const [loadingAreas, setLoadingAreas] = useState(false)
 
-    // --- Modal States ---
+    // Modal
     const [pdfModalOpen, setPdfModalOpen] = useState(false)
     const [pdfUrl, setPdfUrl] = useState('')
     const [pdfTitle, setPdfTitle] = useState('')
     const [isPdfLoading, setIsPdfLoading] = useState(false)
 
-    const [sendModalOpen, setSendModalOpen] = useState(false)
-    const [mailToSend, setMailToSend] = useState<any>(null)
-    const [isSending, setIsSending] = useState(false)
-
     // --- Helpers ---
     const getHeaders = () => {
         let authToken = token
-
         if (!authToken) {
             try {
                 const localData = localStorage.getItem('account-storage')
@@ -128,10 +143,9 @@ const MailList = () => {
                         parsed?.state?.userProfile?.token
                 }
             } catch (error) {
-                console.error('Error reading token from localStorage', error)
+                console.error(error)
             }
         }
-
         return {
             'ngrok-skip-browser-warning': 'true',
             Authorization: `Bearer ${authToken}`,
@@ -143,7 +157,54 @@ const MailList = () => {
         return date ? dayjs(date).format('YYYY-MM-DD') : undefined
     }
 
-    // --- 1. Fetch Filter Options ---
+    // --- EXCEL EXPORT ---
+    const handleExportExcel = async () => {
+        setIsExporting(true)
+        try {
+            let isSend: boolean | undefined
+            if (filterStatus?.value === 'sent') isSend = true
+            if (filterStatus?.value === 'draft') isSend = false
+
+            const blob = await exportExcel({
+                startDate: formatDate(filterStartDate),
+                endDate: formatDate(filterEndDate),
+                isSend,
+                regionId: filterRegion?.value,
+                areaId: filterArea?.value,
+            })
+
+            if (blob) {
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `TezDoc_Report_${dayjs().format('DD_MM_YYYY_HH_mm')}.xlsx`
+                document.body.appendChild(link)
+                link.click()
+                link.remove()
+                window.URL.revokeObjectURL(url)
+                toast.push(
+                    <Notification type="success">
+                        Excel fayl yuklandi
+                    </Notification>,
+                )
+            } else {
+                toast.push(
+                    <Notification type="warning">
+                        Faylni yuklab bo'lmadi
+                    </Notification>,
+                )
+            }
+        } catch (error) {
+            console.error(error)
+            toast.push(
+                <Notification type="danger">Xatolik yuz berdi</Notification>,
+            )
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    // --- LOAD REGIONS ---
     useEffect(() => {
         const fetchRegions = async () => {
             setLoadingRegions(true)
@@ -172,7 +233,6 @@ const MailList = () => {
         setFilterRegion(option)
         setFilterArea(null)
         setAreaOptions([])
-
         if (option?.value) {
             setLoadingAreas(true)
             try {
@@ -196,13 +256,15 @@ const MailList = () => {
         }
     }
 
-    // --- 2. Main Data Fetch ---
+    // --- FETCH DATA ---
     const fetchData = async () => {
         let isSend: boolean | undefined
         if (filterStatus?.value === 'sent') isSend = true
         if (filterStatus?.value === 'draft') isSend = false
 
         await getAllMails({
+            pageIndex,
+            pageSize,
             startDate: formatDate(filterStartDate),
             endDate: formatDate(filterEndDate),
             isSend,
@@ -213,51 +275,53 @@ const MailList = () => {
 
     useEffect(() => {
         fetchData()
-    }, [filterStatus, filterStartDate, filterEndDate, filterRegion, filterArea])
+    }, [
+        pageIndex,
+        pageSize,
+        filterStatus,
+        filterStartDate,
+        filterEndDate,
+        filterRegion,
+        filterArea,
+    ])
 
-    // --- 3. Client-Side Filtering ---
+    const onPaginationChange = (page: number) => setPageIndex(page)
+    const onSelectChange = (value: number) => {
+        setPageSize(value)
+        setPageIndex(1)
+    }
+
+    // --- MEMOIZED FILTER ---
     const filteredMails = useMemo(() => {
         if (!mails) return []
         return mails.filter((item: any) => {
-            if (
-                filterSender &&
-                !item.receiverName
+            const matchesSender =
+                !filterSender ||
+                item.receiverName
                     .toLowerCase()
                     .includes(filterSender.toLowerCase())
-            ) {
-                return false
-            }
-
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase().trim()
-                const id = item.uid?.toLowerCase() || ''
-                if (!id.includes(query)) {
-                    return false
-                }
-            }
-            return true
+            const matchesSearch =
+                !searchQuery ||
+                (item.uid?.toLowerCase() || '').includes(
+                    searchQuery.toLowerCase().trim(),
+                )
+            return matchesSender && matchesSearch
         })
     }, [mails, filterSender, searchQuery])
 
-    // --- 4. Actions ---
+    // --- PDF VIEWER ---
     const openPdfViewer = async (row: any) => {
         setPdfTitle(`Hujjat: ${row.uid} - ${row.receiverName}`)
         setPdfModalOpen(true)
         setIsPdfLoading(true)
-        setPdfUrl('')
-
         try {
             const response = await axios.get(
                 `${BASE_URL}/mail/${row.uid}/download`,
-                {
-                    responseType: 'blob',
-                    headers: getHeaders(),
-                },
+                { responseType: 'blob', headers: getHeaders() },
             )
             const blob = new Blob([response.data], { type: 'application/pdf' })
             setPdfUrl(window.URL.createObjectURL(blob))
         } catch (error) {
-            console.error(error)
             toast.push(
                 <Notification type="danger">
                     PDF yuklashda xatolik
@@ -269,96 +333,55 @@ const MailList = () => {
         }
     }
 
-    const confirmSend = async () => {
-        if (!mailToSend) return
-        setIsSending(true)
-        try {
-            const success = await sendMail(mailToSend.uid)
-            if (success) {
-                toast.push(
-                    <Notification type="success">
-                        Muvaffaqiyatli yuborildi
-                    </Notification>,
-                )
-                setSendModalOpen(false)
-                fetchData()
-            } else {
-                toast.push(
-                    <Notification type="danger">
-                        Yuborishda xatolik
-                    </Notification>,
-                )
-            }
-        } finally {
-            setIsSending(false)
-        }
-    }
-
     return (
         <div className="p-4">
-            {/* --- Filters Card --- */}
-            <Card className="mb-6 border border-gray-200 dark:border-gray-700 shadow-sm rounded-xl">
+            <Card className="mb-6 border border-gray-200 shadow-sm rounded-xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-                    {/* Status */}
-                    <div className="lg:col-span-1">
+                    {/* Filters */}
+                    <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             Holat
                         </label>
                         <Select
                             placeholder="Holat"
                             options={[
-                                {
-                                    label: 'Barchasi',
-                                    value: 'all',
-                                },
-                                {
-                                    label: 'Yuborilgan',
-                                    value: 'sent',
-                                },
-                                {
-                                    label: 'Qoralama',
-                                    value: 'draft',
-                                },
+                                { label: 'Barchasi', value: 'all' },
+                                { label: 'Yuborilgan', value: 'sent' },
+                                { label: 'Qoralama', value: 'draft' },
                             ]}
                             value={filterStatus}
-                            onChange={(val) => setFilterStatus(val)}
+                            onChange={setFilterStatus}
                             size="sm"
                         />
                     </div>
-
-                    {/* Start Date */}
-                    <div className="lg:col-span-1">
+                    <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             Sana (dan)
                         </label>
                         <DatePicker
-                            placeholder="Boshlanish sanasi"
+                            placeholder="Sanadan"
                             value={filterStartDate}
                             onChange={setFilterStartDate}
                             size="sm"
                         />
                     </div>
-
-                    {/* End Date */}
-                    <div className="lg:col-span-1">
+                    <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             Sana (gacha)
                         </label>
                         <DatePicker
-                            placeholder="Tugash sanasi"
+                            placeholder="Sanagacha"
                             value={filterEndDate}
                             onChange={setFilterEndDate}
                             size="sm"
                         />
                     </div>
-
-                    {/* Region */}
-                    <div className="lg:col-span-1">
+                    <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             Viloyat
                         </label>
                         <Select
-                            placeholder="Viloyatni tanlang"
+                            placeholder="Viloyat"
                             options={regionOptions}
                             isLoading={loadingRegions}
                             value={filterRegion}
@@ -366,14 +389,12 @@ const MailList = () => {
                             size="sm"
                         />
                     </div>
-
-                    {/* District */}
-                    <div className="lg:col-span-1">
+                    <div>
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             Tuman
                         </label>
                         <Select
-                            placeholder="Tumanni tanlang"
+                            placeholder="Tuman"
                             options={areaOptions}
                             isLoading={loadingAreas}
                             isDisabled={!filterRegion}
@@ -383,38 +404,45 @@ const MailList = () => {
                         />
                     </div>
 
-                    <div className="hidden lg:block lg:col-span-1"></div>
+                    {/* Excel Button */}
+                    <div className="flex items-end gap-2 justify-end lg:col-span-1">
+                        <Button
+                            variant="twoTone"
+                            color="emerald-600"
+                            size="sm"
+                            icon={<HiOutlineDownload />}
+                            loading={isExporting}
+                            onClick={handleExportExcel}
+                        >
+                            Excel
+                        </Button>
+                    </div>
 
-                    {/* Receiver Filter */}
                     <div className="lg:col-span-2">
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             Qabul qiluvchi
                         </label>
                         <Input
-                            placeholder="Qabul qiluvchi bo'yicha"
-                            prefix={<HiOutlineFilter className="text-lg" />}
+                            placeholder="Ism bo'yicha"
+                            prefix={<HiOutlineFilter />}
                             value={filterSender}
                             onChange={(e) => setFilterSender(e.target.value)}
                             size="sm"
                         />
                     </div>
-
-                    {/* ID Search */}
                     <div className="lg:col-span-2">
                         <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                             ID Qidirish
                         </label>
                         <Input
-                            placeholder="ID bo'yicha qidirish (m-n: TD10)..."
-                            prefix={<HiOutlineSearch className="text-lg" />}
+                            placeholder="ID bo'yicha..."
+                            prefix={<HiOutlineSearch />}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             size="sm"
                         />
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="lg:col-span-2 flex items-end gap-2 justify-end mt-2 lg:mt-0">
+                    <div className="lg:col-span-2 flex items-end gap-2 justify-end">
                         <Button
                             variant="solid"
                             size="sm"
@@ -435,8 +463,7 @@ const MailList = () => {
                 </div>
             </Card>
 
-            {/* --- Data Table --- */}
-            <Card className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden">
                 <Table>
                     <THead>
                         <Tr>
@@ -467,22 +494,19 @@ const MailList = () => {
                         ) : (
                             filteredMails.map((row: any) => (
                                 <Tr key={row.uid}>
-                                    <Td className="w-[60px]">
+                                    <Td>
                                         <Button
                                             shape="circle"
                                             variant="plain"
                                             size="sm"
-                                            className="text-red-500 hover:bg-red-50"
-                                            icon={
-                                                <HiOutlineDocumentText className="text-xl" />
-                                            }
+                                            className="text-red-500"
+                                            icon={<HiOutlineDocumentText />}
                                             onClick={() => openPdfViewer(row)}
                                         />
                                     </Td>
-                                    <Td className="font-mono text-gray-500 w-[120px]">
+                                    <Td className="font-mono text-xs">
                                         {row.uid}
                                     </Td>
-                                    {/* 👇 UPDATED: Uses row.uid in the path only */}
                                     <Td>
                                         <span
                                             className="font-medium text-blue-600 hover:underline cursor-pointer"
@@ -495,69 +519,67 @@ const MailList = () => {
                                             {row.receiverName}
                                         </span>
                                     </Td>
-                                    <Td>{row.receiverAddress}</Td>
-                                    <Td>
+                                    <Td className="text-xs">
+                                        {row.receiverAddress}
+                                    </Td>
+                                    <Td className="text-xs">
                                         {dayjs(row.createdAt).format(
                                             'DD.MM.YYYY',
                                         )}
                                     </Td>
+                                    {/* ✅ NO ERROR HERE NOW BECAUSE StatusTag IS DEFINED */}
                                     <Td>
-                                        <div className="flex items-center gap-2">
-                                            <StatusTag row={row} />
-                                        </div>
+                                        <StatusTag row={row} />
                                     </Td>
                                 </Tr>
                             ))
                         )}
                     </TBody>
                 </Table>
+
+                {/* Pagination */}
+                <div className="p-4 flex items-center justify-between border-t border-gray-200">
+                    <Pagination
+                        pageSize={pageSize}
+                        currentPage={pageIndex}
+                        total={totalMails}
+                        onChange={onPaginationChange}
+                    />
+                    <div className="w-32">
+                        <Select
+                            size="sm"
+                            menuPlacement="top"
+                            isSearchable={false}
+                            value={[
+                                { value: 10, label: '10 / page' },
+                                { value: 20, label: '20 / page' },
+                                { value: 50, label: '50 / page' },
+                            ].find((i) => i.value === pageSize)}
+                            options={[
+                                { value: 10, label: '10 / page' },
+                                { value: 20, label: '20 / page' },
+                                { value: 50, label: '50 / page' },
+                            ]}
+                            onChange={(option) =>
+                                onSelectChange(option?.value || 10)
+                            }
+                        />
+                    </div>
+                </div>
             </Card>
 
-            {/* --- PDF Viewer Modal --- */}
             <Dialog
                 isOpen={pdfModalOpen}
                 onClose={() => setPdfModalOpen(false)}
                 width={1000}
-                contentClassName="p-0"
-                closable
                 title={pdfTitle}
             >
-                <div className="h-[75vh] w-full bg-gray-100 flex items-center justify-center rounded-b-lg overflow-hidden">
+                <div className="h-[70vh]">
                     {isPdfLoading ? (
-                        <Spinner size="lg" />
-                    ) : pdfUrl ? (
-                        <iframe
-                            src={pdfUrl}
-                            className="w-full h-full"
-                            frameBorder="0"
-                        />
+                        <Spinner />
                     ) : (
-                        <div className="text-gray-400">PDF topilmadi</div>
+                        <iframe src={pdfUrl} className="w-full h-full" />
                     )}
-                </div>
-            </Dialog>
-
-            {/* --- Send Confirmation Modal --- */}
-            <Dialog
-                isOpen={sendModalOpen}
-                onClose={() => setSendModalOpen(false)}
-                title="Yuborishni tasdiqlang"
-            >
-                <div className="flex flex-col gap-4">
-                    <div>
-                        <div className="text-xs text-gray-500 mb-1 uppercase font-bold">
-                            E-Imzo
-                        </div>
-                        <Select isDisabled placeholder="Kalitni tanlang" />
-                    </div>
-                    <Button
-                        variant="solid"
-                        block
-                        loading={isSending}
-                        onClick={confirmSend}
-                    >
-                        Imzosiz yuborish
-                    </Button>
                 </div>
             </Dialog>
         </div>

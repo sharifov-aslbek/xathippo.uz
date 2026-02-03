@@ -5,7 +5,7 @@ import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select' // Assuming you have a Select component
+import Select from '@/components/ui/Select'
 import Tag from '@/components/ui/Tag'
 import Notification from '@/components/ui/Notification'
 import toast from '@/components/ui/toast'
@@ -143,7 +143,10 @@ const MyWorkers = () => {
         try {
             const token = getToken()
             const response = await fetch(`${BASE_URL}/user/get-workers`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: {
+                    'ngrok-skip-browser-warning': 'true', // Added
+                    Authorization: `Bearer ${token}`,
+                },
             })
             if (!response.ok) throw new Error()
             const data = await response.json()
@@ -167,7 +170,10 @@ const MyWorkers = () => {
             const response = await fetch(
                 `${BASE_URL}/permission/my-worker_branches?workerId=${workerId}`,
                 {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true', // Added
+                        Authorization: `Bearer ${token}`,
+                    },
                 },
             )
             if (!response.ok) throw new Error()
@@ -220,6 +226,7 @@ const MyWorkers = () => {
             const response = await fetch(`${BASE_URL}/user/create-worker`, {
                 method: 'POST',
                 headers: {
+                    'ngrok-skip-browser-warning': 'true', // Added
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
@@ -263,6 +270,7 @@ const MyWorkers = () => {
             const response = await fetch(`${BASE_URL}/permission/org/grant`, {
                 method: 'POST',
                 headers: {
+                    'ngrok-skip-browser-warning': 'true', // Added
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
@@ -297,6 +305,7 @@ const MyWorkers = () => {
             const response = await fetch(`${BASE_URL}/permission/org/revoke`, {
                 method: 'POST',
                 headers: {
+                    'ngrok-skip-browser-warning': 'true', // Added
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },

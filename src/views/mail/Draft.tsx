@@ -5,7 +5,9 @@ import {
     HiOutlinePlus,
     HiOutlinePaperAirplane, // Send Icon
     HiOutlinePencil, // Edit Icon
+    HiOutlineDownload, // Excel Icon
 } from 'react-icons/hi'
+// ❌ REMOVED: import * as XLSX from 'xlsx'
 
 // --- Table Imports ---
 import Table from '@/components/ui/Table'
@@ -49,7 +51,9 @@ const MailList = () => {
     const navigate = useNavigate()
 
     // --- Stores ---
-    const { mails, isLoading, getAllMails, sendMail } = useMailStore()
+    // ✨ ADDED: exportExcel
+    const { mails, isLoading, getAllMails, sendMail, exportExcel } =
+        useMailStore()
     const token = useAccountStore((state) => state.userProfile?.token)
     const { activateAndSign } = useEImzoStore()
 
@@ -57,6 +61,9 @@ const MailList = () => {
     const [filterSender, setFilterSender] = useState('')
     const [filterDate, setFilterDate] = useState<Date | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
+
+    // ✨ ADDED: Export loading state
+    const [isExporting, setIsExporting] = useState(false)
 
     // --- Modal States ---
     const [pdfModalOpen, setPdfModalOpen] = useState(false)
@@ -81,7 +88,60 @@ const MailList = () => {
         return date ? dayjs(date).format('YYYY-MM-DD') : undefined
     }
 
-    // --- 1. Fetch Data (Drafts Only) ---
+    // --- 1. ✨ API Excel Export (Drafts) ---
+    const handleExportExcel = async () => {
+        setIsExporting(true)
+        try {
+            const dateStr = formatDate(filterDate)
+
+            // Call the store action
+            const blob = await exportExcel({
+                startDate: dateStr,
+                endDate: dateStr,
+                isSend: false, // 🔒 FORCED: Always false for Drafts page
+                // Note: Client-side text search (filterSender/searchQuery)
+                // is usually not supported by simple API exports unless
+                // the API has a 'search' param. We send what we can.
+            })
+
+            if (blob) {
+                // Create download link
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `TezDoc_Qoralamalar_${dayjs().format('DD_MM_YYYY_HH_mm')}.xlsx`
+                document.body.appendChild(link)
+                link.click()
+
+                // Cleanup
+                link.remove()
+                window.URL.revokeObjectURL(url)
+
+                toast.push(
+                    <Notification type="success">
+                        Excel fayl muvaffaqiyatli yuklandi
+                    </Notification>,
+                )
+            } else {
+                toast.push(
+                    <Notification type="warning">
+                        Faylni yuklab bo'lmadi
+                    </Notification>,
+                )
+            }
+        } catch (error) {
+            console.error(error)
+            toast.push(
+                <Notification type="danger">
+                    Excel yuklashda xatolik
+                </Notification>,
+            )
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    // --- 2. Fetch Data (Drafts Only) ---
     const fetchData = async () => {
         const dateStr = formatDate(filterDate)
         await getAllMails({
@@ -95,7 +155,7 @@ const MailList = () => {
         fetchData()
     }, [filterDate])
 
-    // --- 2. Filter Logic ---
+    // --- 3. Filter Logic ---
     const filteredMails = useMemo(() => {
         if (!mails) return []
         return mails.filter((item: any) => {
@@ -119,7 +179,7 @@ const MailList = () => {
         })
     }, [mails, filterSender, searchQuery])
 
-    // --- 3. Actions ---
+    // --- 4. Actions ---
     const openPdfViewer = async (row: any) => {
         setPdfTitle(`Hujjat: ${row.uid} - ${row.receiverName}`)
         setPdfModalOpen(true)
@@ -148,14 +208,12 @@ const MailList = () => {
         }
     }
 
-    // Open Send Modal
     const handleSendClick = (row: any) => {
         setMailToSend(row)
-        setSelectedCert(null) // Reset cert selection
+        setSelectedCert(null)
         setSendModalOpen(true)
     }
 
-    // --- 4. Confirm Send (E-IMZO Logic) ---
     const confirmSend = async () => {
         if (!mailToSend) return
         if (!selectedCert) {
@@ -170,37 +228,33 @@ const MailList = () => {
         setIsSending(true)
 
         try {
-            // Step 1: Mock Hash (In production, fetch real hash from backend)
+            // NOTE: Ideally, fetch this hash from backend instead of hardcoding
             const hashData =
                 'b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c'
-
-            // Step 2: Sign using E-IMZO Store
             const signature = await activateAndSign(selectedCert, hashData)
             console.log('✅ Signature Generated:', signature)
 
-            // Step 3: Send to Backend
             const success = await sendMail(mailToSend.uid)
 
             if (success) {
                 toast.push(
                     <Notification type="success">
-                        Xat muvaffaqiyatli yuborildi.
+                        Muvaffaqiyatli yuborildi
                     </Notification>,
                 )
                 setSendModalOpen(false)
-                fetchData() // Refresh list
+                fetchData()
             } else {
                 toast.push(
                     <Notification type="danger">
-                        Xatni yuborib bo'lmadi.
+                        Yuborishda xatolik
                     </Notification>,
                 )
             }
         } catch (error: any) {
-            console.error(error)
             toast.push(
                 <Notification type="danger">
-                    Xatolik: {error.message || 'Imzolashda xatolik yuz berdi'}
+                    Xatolik: {error.message}
                 </Notification>,
             )
         } finally {
@@ -210,8 +264,7 @@ const MailList = () => {
 
     return (
         <div className="p-4">
-            {/* --- Filters --- */}
-            <Card className="mb-4 border border-gray-200 dark:border-gray-700 shadow-sm rounded-xl">
+            <Card className="mb-4 border border-gray-200 shadow-sm rounded-xl">
                 <div className="flex flex-col lg:flex-row gap-4 justify-between items-end lg:items-center">
                     <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
                         <div className="w-full sm:w-40">
@@ -236,7 +289,7 @@ const MailList = () => {
                                     setFilterSender(e.target.value)
                                 }
                                 size="sm"
-                                placeholder="Qabul qiluvchi ismi"
+                                placeholder="Ism bo'yicha"
                             />
                         </div>
                         <div className="w-full sm:w-64">
@@ -248,11 +301,22 @@ const MailList = () => {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 size="sm"
-                                placeholder="ID bo'yicha qidirish..."
+                                placeholder="ID bo'yicha..."
                             />
                         </div>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
+                        {/* ✨ UPDATED: Export Button */}
+                        <Button
+                            variant="twoTone"
+                            color="emerald-600"
+                            size="sm"
+                            icon={<HiOutlineDownload />}
+                            loading={isExporting}
+                            onClick={handleExportExcel}
+                        >
+                            Excel
+                        </Button>
                         <Button
                             variant="solid"
                             size="sm"
@@ -273,8 +337,7 @@ const MailList = () => {
                 </div>
             </Card>
 
-            {/* --- Table --- */}
-            <Card className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <Card className="border border-gray-200 rounded-xl overflow-hidden">
                 <Table>
                     <THead>
                         <Tr>
@@ -305,7 +368,7 @@ const MailList = () => {
                         ) : (
                             filteredMails.map((row: any) => (
                                 <Tr key={row.uid}>
-                                    <Td className="font-mono text-gray-500 w-[120px]">
+                                    <Td className="font-mono text-xs w-[120px]">
                                         {row.uid}
                                     </Td>
                                     <Td>
@@ -320,8 +383,10 @@ const MailList = () => {
                                             {row.receiverName}
                                         </span>
                                     </Td>
-                                    <Td>{row.receiverAddress}</Td>
-                                    <Td>
+                                    <Td className="text-xs">
+                                        {row.receiverAddress}
+                                    </Td>
+                                    <Td className="text-xs">
                                         {dayjs(row.createdAt).format(
                                             'DD.MM.YYYY',
                                         )}
@@ -331,7 +396,6 @@ const MailList = () => {
                                     </Td>
                                     <Td>
                                         <div className="flex gap-2">
-                                            {/* Send Button */}
                                             <Tooltip title="Yuborish">
                                                 <Button
                                                     size="xs"
@@ -345,8 +409,6 @@ const MailList = () => {
                                                     }
                                                 />
                                             </Tooltip>
-
-                                            {/* Edit Button */}
                                             <Tooltip title="Tahrirlash">
                                                 <Button
                                                     size="xs"
@@ -368,7 +430,6 @@ const MailList = () => {
                 </Table>
             </Card>
 
-            {/* --- PDF Modal --- */}
             <Dialog
                 isOpen={pdfModalOpen}
                 onClose={() => setPdfModalOpen(false)}
@@ -378,15 +439,12 @@ const MailList = () => {
                 <div className="h-[75vh] w-full bg-gray-100 flex items-center justify-center rounded-b-lg">
                     {isPdfLoading ? (
                         <Spinner size="lg" />
-                    ) : pdfUrl ? (
-                        <iframe src={pdfUrl} className="w-full h-full" />
                     ) : (
-                        <div>PDF fayl topilmadi</div>
+                        <iframe src={pdfUrl} className="w-full h-full" />
                     )}
                 </div>
             </Dialog>
 
-            {/* --- Send (E-IMZO) Modal --- */}
             <Dialog
                 isOpen={sendModalOpen}
                 onClose={() => setSendModalOpen(false)}
@@ -394,14 +452,10 @@ const MailList = () => {
                 width={500}
             >
                 <div className="flex flex-col gap-6 pt-4">
-                    <div>
-                        {/* Key Selection Component */}
-                        <MissingSign
-                            onSignClicked={setSelectedCert}
-                            disabled={isSending}
-                        />
-                    </div>
-
+                    <MissingSign
+                        onSignClicked={setSelectedCert}
+                        disabled={isSending}
+                    />
                     <Button
                         block
                         variant="solid"
@@ -409,7 +463,6 @@ const MailList = () => {
                         loading={isSending}
                         disabled={!selectedCert}
                         onClick={confirmSend}
-                        className="bg-blue-600 hover:bg-blue-700 text-white border-none font-semibold"
                     >
                         Yuborish
                     </Button>

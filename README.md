@@ -1,4 +1,4 @@
-# Xat Hippo.uz - The Ultimate React, Vite & TypeScript Web Template
+# Xat Hippo.uz   - The Ultimate React, Vite & TypeScript Web Template
 
 XatHippo.uz is a modern and responsive admin dashboard template built with React and TypeScript. Designed to provide a highly customizable and easy-to-use platform for building admin interfaces, it includes a variety of reusable components, pre-designed pages, and dynamic features. 
 

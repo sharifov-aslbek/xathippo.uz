@@ -12,10 +12,10 @@ interface SignInFormProps extends CommonProps {
     passwordHint?: string | React.ReactNode
 }
 
-// Validation Schema
+// Validation Schema (Uzbek)
 const validationSchema = z.object({
-    phone: z.string().min(1, 'Phone Number is required'),
-    password: z.string().min(1, 'Password is required'),
+    phone: z.string().min(1, 'Telefon raqami kiritilishi shart'),
+    password: z.string().min(1, 'Parol kiritilishi shart'),
 })
 
 type SignInFormSchema = z.infer<typeof validationSchema>
@@ -64,7 +64,7 @@ const SignInForm = (props: SignInFormProps) => {
         } catch (error: any) {
             console.error('❌ Login Error:', error)
             const backendMessage =
-                error.response?.data?.message || 'Login failed'
+                error.response?.data?.message || 'Kirishda xatolik yuz berdi'
             setMessage?.(backendMessage)
         }
     }
@@ -84,7 +84,7 @@ const SignInForm = (props: SignInFormProps) => {
                 {/* Phone Input */}
                 <div>
                     <label className="block mb-2 font-semibold text-gray-700 dark:text-gray-200">
-                        Phone Number
+                        Telefon raqami
                     </label>
                     <input
                         {...register('phone')}
@@ -104,12 +104,12 @@ const SignInForm = (props: SignInFormProps) => {
                 {/* Password Input */}
                 <div>
                     <label className="block mb-2 font-semibold text-gray-700 dark:text-gray-200">
-                        Password
+                        Parol
                     </label>
                     <input
                         {...register('password')}
                         type="password"
-                        placeholder="Password"
+                        placeholder="Parol"
                         className={`
                             w-full p-3 border rounded-lg outline-none transition-all
                             ${errors.password ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700'}
@@ -131,7 +131,7 @@ const SignInForm = (props: SignInFormProps) => {
                         ${isLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'}
                     `}
                 >
-                    {isLoading ? 'Signing In...' : 'Sign In'}
+                    {isLoading ? 'Kirilmoqda...' : 'Kirish'}
                 </button>
             </form>
         </div>

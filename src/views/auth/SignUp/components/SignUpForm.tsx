@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
-import { FormItem, Form } from '@/components/ui/Form'
+// Ensure FormItem and Form are correctly imported from your UI library or use standard div/form
+import { FormItem, FormContainer } from '@/components/ui/Form'
 import Alert from '@/components/ui/Alert'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,12 +11,11 @@ import { z } from 'zod'
 import type { ZodType } from 'zod'
 import type { CommonProps } from '@/@types/common'
 import { HiUser, HiOfficeBuilding, HiArrowLeft } from 'react-icons/hi'
-import { useAccountStore } from '@/store/accountStore' // IMPORT YOUR STORE
+import { useAccountStore } from '@/store/accountStore'
 
 interface SignUpFormProps extends CommonProps {
     disableSubmit?: boolean
     setMessage?: (message: string) => void
-    setParentStep?: (step: string) => void
 }
 
 // --- Zod Schema for the FINAL step ---
@@ -27,12 +27,12 @@ type FinalStepSchema = {
 
 const finalStepSchema: ZodType<FinalStepSchema> = z
     .object({
-        phone: z.string().min(1, 'Phone is required'),
-        password: z.string().min(1, 'Password Required'),
-        confirmPassword: z.string().min(1, 'Confirm Password Required'),
+        phone: z.string().min(1, 'Telefon raqami kiritilishi shart'),
+        password: z.string().min(1, 'Parol kiritilishi shart'),
+        confirmPassword: z.string().min(1, 'Parolni tasdiqlash shart'),
     })
     .refine((data) => data.password === data.confirmPassword, {
-        message: 'Passwords do not match',
+        message: 'Parollar mos kelmadi',
         path: ['confirmPassword'],
     })
 
@@ -108,7 +108,7 @@ const SignUpForm = (props: SignUpFormProps) => {
     // --- Logic: Citizen Check (Real API) ---
     const checkCitizenPinfl = async () => {
         if (citizenData.pinfl.length !== 14) {
-            setMessage?.('PINFL must be 14 digits')
+            setMessage?.("JSHSHIR 14 ta raqamdan iborat bo'lishi kerak")
             return
         }
         setIsLoading(true)
@@ -117,12 +117,11 @@ const SignUpForm = (props: SignUpFormProps) => {
         try {
             const res = await getPersonByPinfl(citizenData.pinfl)
 
-            // Adapt based on your actual API response structure
             if (res && res.data) {
                 setCitizenData((prev) => ({
                     ...prev,
-                    fullName: res.data.name || res.fio || 'Unknown Name',
-                    address: res.data.address || 'Address Found',
+                    fullName: res.data.name || res.fio || "Noma'lum",
+                    address: res.data.address || 'Manzil topildi',
                 }))
                 setCurrentStep('account')
             } else {
@@ -130,7 +129,7 @@ const SignUpForm = (props: SignUpFormProps) => {
             }
         } catch (error) {
             console.error(error)
-            setMessage?.('User not found or connection failed')
+            setMessage?.('Foydalanuvchi topilmadi yoki aloqa xatosi')
         } finally {
             setIsLoading(false)
         }
@@ -139,7 +138,7 @@ const SignUpForm = (props: SignUpFormProps) => {
     // --- Logic: Company Check (Real API) ---
     const checkCompanyInn = async () => {
         if (directorData.inn.length !== 9) {
-            setMessage?.('INN must be 9 digits')
+            setMessage?.("STIR 9 ta raqamdan iborat bo'lishi kerak")
             return
         }
         setIsLoading(true)
@@ -148,20 +147,19 @@ const SignUpForm = (props: SignUpFormProps) => {
         try {
             const res = await getCompanyByInn(directorData.inn)
 
-            // Adapt based on your actual API response structure
             if (res && res.data) {
                 setDirectorData((prev) => ({
                     ...prev,
-                    companyName: res.data.name || 'Unknown Company',
-                    directorName: res.data.directorName || 'Unknown Director',
-                    directorPinflFromFile: res.data.directorPinfl || '', // Important for verification
+                    companyName: res.data.name || "Noma'lum Tashkilot",
+                    directorName: res.data.directorName || "Noma'lum Direktor",
+                    directorPinflFromFile: res.data.directorPinfl || '',
                 }))
             } else {
                 throw new Error('Company not found')
             }
         } catch (error) {
             console.error(error)
-            setMessage?.('Company not found or connection failed')
+            setMessage?.('Tashkilot topilmadi yoki aloqa xatosi')
         } finally {
             setIsLoading(false)
         }
@@ -171,7 +169,7 @@ const SignUpForm = (props: SignUpFormProps) => {
         if (
             directorData.userPinflInput !== directorData.directorPinflFromFile
         ) {
-            setMessage?.('Director PINFL does not match company records')
+            setMessage?.("Direktor JSHSHIR ma'lumotlari mos kelmadi")
             return
         }
         setCurrentStep('account')
@@ -204,15 +202,13 @@ const SignUpForm = (props: SignUpFormProps) => {
             }
 
             if (success) {
-                // Redirect on success
-                // Your store automatically logs them in if register returns true
                 navigate('/dashboard')
             } else {
-                setMessage?.('Registration failed. Please try again.')
+                setMessage?.("Ro'yxatdan o'tishda xatolik yuz berdi")
             }
         } catch (error: any) {
             const errorMsg =
-                error.response?.data?.message || 'Registration error'
+                error.response?.data?.message || "Ro'yxatdan o'tishda xatolik"
             setMessage?.(errorMsg)
         }
     }
@@ -229,9 +225,9 @@ const SignUpForm = (props: SignUpFormProps) => {
                     <HiUser />
                 </div>
                 <div>
-                    <div className="font-bold text-lg">Citizen</div>
+                    <div className="font-bold text-lg">Fuqaro</div>
                     <div className="text-gray-500 text-sm">
-                        Register as an individual
+                        Jismoniy shaxs sifatida ro'yxatdan o'tish
                     </div>
                 </div>
             </div>
@@ -244,9 +240,9 @@ const SignUpForm = (props: SignUpFormProps) => {
                     <HiOfficeBuilding />
                 </div>
                 <div>
-                    <div className="font-bold text-lg">Organization</div>
+                    <div className="font-bold text-lg">Tashkilot</div>
                     <div className="text-gray-500 text-sm">
-                        Register as a company director
+                        Tashkilot direktori sifatida ro'yxatdan o'tish
                     </div>
                 </div>
             </div>
@@ -258,11 +254,11 @@ const SignUpForm = (props: SignUpFormProps) => {
             {/* Step 1: Verification */}
             <div>
                 <label className="font-semibold mb-2 block text-gray-700 dark:text-gray-200 text-sm">
-                    PINFL (JSHSHIR)
+                    JSHSHIR (PINFL)
                 </label>
                 <div className="flex gap-2">
                     <Input
-                        placeholder="Enter 14-digit PINFL"
+                        placeholder="14 xonali raqamni kiriting"
                         value={citizenData.pinfl}
                         onChange={(e: any) =>
                             setCitizenData({
@@ -279,7 +275,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                         disabled={currentStep === 'account'}
                         type="button"
                     >
-                        Check
+                        Tekshirish
                     </Button>
                 </div>
             </div>
@@ -288,84 +284,85 @@ const SignUpForm = (props: SignUpFormProps) => {
             {currentStep === 'account' && (
                 <div className="animate-fade-in">
                     <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
-                        <FormItem label="Full Name" className="mb-2">
-                            <Input
-                                value={citizenData.fullName}
-                                disabled
-                                className="!bg-transparent !border-none !p-0 font-bold text-gray-900 dark:text-gray-100"
-                            />
-                        </FormItem>
-                        <FormItem label="Address" className="mb-0">
-                            <Input
-                                textArea
-                                value={citizenData.address}
-                                disabled
-                                className="!bg-transparent !border-none !p-0 resize-none text-gray-600 dark:text-gray-300"
-                            />
-                        </FormItem>
+                        <div className="mb-2">
+                            <span className="text-xs text-gray-500 uppercase font-bold">
+                                To'liq Ism
+                            </span>
+                            <div className="font-semibold">
+                                {citizenData.fullName}
+                            </div>
+                        </div>
+                        <div>
+                            <span className="text-xs text-gray-500 uppercase font-bold">
+                                Manzil
+                            </span>
+                            <div className="text-sm">{citizenData.address}</div>
+                        </div>
                     </div>
 
-                    <Form onSubmit={handleSubmit(onFinalSubmit)}>
-                        <FormItem
-                            label="Phone Number"
-                            invalid={Boolean(errors.phone)}
-                            errorMessage={errors.phone?.message}
-                        >
-                            <Controller
-                                name="phone"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        {...field}
-                                        placeholder="+998..."
-                                        autoComplete="off"
-                                    />
-                                )}
-                            />
-                        </FormItem>
-                        <FormItem
-                            label="Password"
-                            invalid={Boolean(errors.password)}
-                            errorMessage={errors.password?.message}
-                        >
-                            <Controller
-                                name="password"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        {...field}
-                                        type="password"
-                                        placeholder="Password"
-                                    />
-                                )}
-                            />
-                        </FormItem>
-                        <FormItem
-                            label="Confirm Password"
-                            invalid={Boolean(errors.confirmPassword)}
-                            errorMessage={errors.confirmPassword?.message}
-                        >
-                            <Controller
-                                name="confirmPassword"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        {...field}
-                                        type="password"
-                                        placeholder="Confirm Password"
-                                    />
-                                )}
-                            />
-                        </FormItem>
-                        <Button
-                            block
-                            loading={isSubmitting}
-                            variant="solid"
-                            type="submit"
-                        >
-                            Complete Registration
-                        </Button>
-                    </Form>
+                    <form onSubmit={handleSubmit(onFinalSubmit)}>
+                        <FormContainer>
+                            <FormItem
+                                label="Telefon raqami"
+                                invalid={Boolean(errors.phone)}
+                                errorMessage={errors.phone?.message}
+                            >
+                                <Controller
+                                    name="phone"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            placeholder="+998..."
+                                            autoComplete="off"
+                                        />
+                                    )}
+                                />
+                            </FormItem>
+                            <FormItem
+                                label="Parol"
+                                invalid={Boolean(errors.password)}
+                                errorMessage={errors.password?.message}
+                            >
+                                <Controller
+                                    name="password"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            type="password"
+                                            placeholder="Parol yarating"
+                                        />
+                                    )}
+                                />
+                            </FormItem>
+                            <FormItem
+                                label="Parolni tasdiqlash"
+                                invalid={Boolean(errors.confirmPassword)}
+                                errorMessage={errors.confirmPassword?.message}
+                            >
+                                <Controller
+                                    name="confirmPassword"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            type="password"
+                                            placeholder="Parolni qayta kiriting"
+                                        />
+                                    )}
+                                />
+                            </FormItem>
+                            <Button
+                                block
+                                loading={isSubmitting}
+                                variant="solid"
+                                type="submit"
+                            >
+                                Ro'yxatdan o'tishni yakunlash
+                            </Button>
+                        </FormContainer>
+                    </form>
                 </div>
             )}
         </div>
@@ -376,11 +373,11 @@ const SignUpForm = (props: SignUpFormProps) => {
             {/* Step 1: Search Company */}
             <div>
                 <label className="font-semibold mb-2 block text-gray-700 dark:text-gray-200 text-sm">
-                    Company INN
+                    Tashkilot STIR (INN)
                 </label>
                 <div className="flex gap-2">
                     <Input
-                        placeholder="Enter 9-digit INN"
+                        placeholder="9 xonali raqamni kiriting"
                         value={directorData.inn}
                         onChange={(e: any) =>
                             setDirectorData({
@@ -397,18 +394,18 @@ const SignUpForm = (props: SignUpFormProps) => {
                         disabled={!!directorData.companyName}
                         type="button"
                     >
-                        Search
+                        Izlash
                     </Button>
                 </div>
             </div>
 
             {/* Found Company Info */}
             {directorData.companyName && (
-                <Alert type="info" title="Company Found">
+                <Alert type="info" title="Tashkilot topildi">
                     <div className="font-bold text-lg">
                         {directorData.companyName}
                     </div>
-                    <div>Director: {directorData.directorName}</div>
+                    <div>Direktor: {directorData.directorName}</div>
                 </Alert>
             )}
 
@@ -416,11 +413,11 @@ const SignUpForm = (props: SignUpFormProps) => {
             {directorData.companyName && currentStep === 'verification' && (
                 <div className="animate-fade-in">
                     <label className="font-semibold mb-2 block text-gray-700 dark:text-gray-200 text-sm">
-                        Director PINFL (Verify)
+                        Direktor JSHSHIR (Tasdiqlash uchun)
                     </label>
                     <div className="flex gap-2">
                         <Input
-                            placeholder="Enter Director PINFL"
+                            placeholder="JSHSHIR kiriting"
                             value={directorData.userPinflInput}
                             onChange={(e: any) =>
                                 setDirectorData({
@@ -435,7 +432,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                             onClick={verifyDirectorPinfl}
                             type="button"
                         >
-                            Verify
+                            Tasdiqlash
                         </Button>
                     </div>
                 </div>
@@ -444,67 +441,69 @@ const SignUpForm = (props: SignUpFormProps) => {
             {/* Step 3: Account Creation */}
             {currentStep === 'account' && (
                 <div className="animate-fade-in">
-                    <Form onSubmit={handleSubmit(onFinalSubmit)}>
-                        <FormItem
-                            label="Phone Number"
-                            invalid={Boolean(errors.phone)}
-                            errorMessage={errors.phone?.message}
-                        >
-                            <Controller
-                                name="phone"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        {...field}
-                                        placeholder="+998..."
-                                        autoComplete="off"
-                                    />
-                                )}
-                            />
-                        </FormItem>
-                        <FormItem
-                            label="Password"
-                            invalid={Boolean(errors.password)}
-                            errorMessage={errors.password?.message}
-                        >
-                            <Controller
-                                name="password"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        {...field}
-                                        type="password"
-                                        placeholder="Password"
-                                    />
-                                )}
-                            />
-                        </FormItem>
-                        <FormItem
-                            label="Confirm Password"
-                            invalid={Boolean(errors.confirmPassword)}
-                            errorMessage={errors.confirmPassword?.message}
-                        >
-                            <Controller
-                                name="confirmPassword"
-                                control={control}
-                                render={({ field }) => (
-                                    <Input
-                                        {...field}
-                                        type="password"
-                                        placeholder="Confirm Password"
-                                    />
-                                )}
-                            />
-                        </FormItem>
-                        <Button
-                            block
-                            loading={isSubmitting}
-                            variant="solid"
-                            type="submit"
-                        >
-                            Register Organization
-                        </Button>
-                    </Form>
+                    <form onSubmit={handleSubmit(onFinalSubmit)}>
+                        <FormContainer>
+                            <FormItem
+                                label="Telefon raqami"
+                                invalid={Boolean(errors.phone)}
+                                errorMessage={errors.phone?.message}
+                            >
+                                <Controller
+                                    name="phone"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            placeholder="+998..."
+                                            autoComplete="off"
+                                        />
+                                    )}
+                                />
+                            </FormItem>
+                            <FormItem
+                                label="Parol"
+                                invalid={Boolean(errors.password)}
+                                errorMessage={errors.password?.message}
+                            >
+                                <Controller
+                                    name="password"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            type="password"
+                                            placeholder="Parol yarating"
+                                        />
+                                    )}
+                                />
+                            </FormItem>
+                            <FormItem
+                                label="Parolni tasdiqlash"
+                                invalid={Boolean(errors.confirmPassword)}
+                                errorMessage={errors.confirmPassword?.message}
+                            >
+                                <Controller
+                                    name="confirmPassword"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Input
+                                            {...field}
+                                            type="password"
+                                            placeholder="Parolni qayta kiriting"
+                                        />
+                                    )}
+                                />
+                            </FormItem>
+                            <Button
+                                block
+                                loading={isSubmitting}
+                                variant="solid"
+                                type="submit"
+                            >
+                                Ro'yxatdan o'tish
+                            </Button>
+                        </FormContainer>
+                    </form>
                 </div>
             )}
         </div>
@@ -521,7 +520,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                         icon={<HiArrowLeft />}
                         onClick={handleBack}
                     >
-                        Back
+                        Orqaga
                     </Button>
                 </div>
             )}
@@ -529,13 +528,19 @@ const SignUpForm = (props: SignUpFormProps) => {
             {/* Dynamic Title */}
             <div className="mb-6">
                 {currentStep === 'selection' && (
-                    <h3 className="text-center">Choose Registration Type</h3>
+                    <h3 className="text-center">
+                        Ro'yxatdan o'tish turini tanlang
+                    </h3>
                 )}
                 {role === 'citizen' && currentStep !== 'selection' && (
-                    <h3 className="text-center">Citizen Registration</h3>
+                    <h3 className="text-center">
+                        Fuqaro sifatida ro'yxatdan o'tish
+                    </h3>
                 )}
                 {role === 'director' && currentStep !== 'selection' && (
-                    <h3 className="text-center">Organization Registration</h3>
+                    <h3 className="text-center">
+                        Tashkilot sifatida ro'yxatdan o'tish
+                    </h3>
                 )}
             </div>
 

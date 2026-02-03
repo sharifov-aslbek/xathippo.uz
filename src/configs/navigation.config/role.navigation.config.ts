@@ -11,12 +11,22 @@ import {
 } from '@/constants/usertype.constant'
 import type { NavigationTree } from '@/@types/navigation'
 
-// Common items used by everyone (PDF, Registry, etc)
+// Common items used by everyone (PDF, Registry, Documentation, Templates etc)
 const commonMailItems: NavigationTree[] = [
+    {
+        key: 'template',
+        path: '/template',
+        title: 'Shablon',
+        translateKey: 'menu.template',
+        icon: 'hi-outline-document-text',
+        type: NAV_ITEM_TYPE_ITEM,
+        authority: [],
+        subMenu: [],
+    },
     {
         key: 'mail-create-pdf',
         path: '/mail/create-pdf',
-        title: 'PDF yaratish', // Updated
+        title: 'PDF yaratish',
         translateKey: 'menu.createPdf',
         icon: 'hi-outline-document-add',
         type: NAV_ITEM_TYPE_ITEM,
@@ -26,7 +36,7 @@ const commonMailItems: NavigationTree[] = [
     {
         key: 'mail-create-registry',
         path: '/mail/create-registry',
-        title: 'Reyestr yaratish', // Updated
+        title: 'Reyestr yaratish',
         translateKey: 'menu.createRegistry',
         icon: 'hi-outline-folder',
         type: NAV_ITEM_TYPE_ITEM,
@@ -36,7 +46,7 @@ const commonMailItems: NavigationTree[] = [
     {
         key: 'created',
         path: '/mail/draftmails',
-        title: 'Yaratilganlar', // Updated
+        title: 'Yaratilganlar',
         translateKey: 'menu.created',
         icon: 'hi-outline-check-circle',
         type: NAV_ITEM_TYPE_ITEM,
@@ -46,7 +56,7 @@ const commonMailItems: NavigationTree[] = [
     {
         key: 'sent',
         path: '/mail/sentmails',
-        title: 'Yuborilganlar', // Updated
+        title: 'Yuborilganlar',
         translateKey: 'menu.sent',
         icon: 'hi-outline-paper-airplane',
         type: NAV_ITEM_TYPE_ITEM,
@@ -56,9 +66,19 @@ const commonMailItems: NavigationTree[] = [
     {
         key: 'all',
         path: '/mail/all',
-        title: 'Barchasi', // Updated
+        title: 'Barchasi',
         translateKey: 'menu.all',
         icon: 'hi-outline-collection',
+        type: NAV_ITEM_TYPE_ITEM,
+        authority: [],
+        subMenu: [],
+    },
+    {
+        key: 'documentation',
+        path: '/documentation',
+        title: 'Dokumentatsiya',
+        translateKey: 'menu.documentation',
+        icon: 'hi-outline-book-open',
         type: NAV_ITEM_TYPE_ITEM,
         authority: [],
         subMenu: [],
@@ -73,7 +93,7 @@ export const workerNavigationConfig: NavigationTree[] = [
     {
         key: 'organization',
         path: '/worker/organization',
-        title: 'Tashkilot', // Updated
+        title: 'Tashkilot',
         translateKey: 'menu.organization',
         icon: 'hi-outline-office-building',
         type: NAV_ITEM_TYPE_ITEM,
@@ -83,7 +103,7 @@ export const workerNavigationConfig: NavigationTree[] = [
     {
         key: 'branches',
         path: '/worker/branches',
-        title: 'Filiallar', // Updated
+        title: 'Filiallar',
         translateKey: 'menu.branches',
         icon: 'hi-outline-template',
         type: NAV_ITEM_TYPE_ITEM,
@@ -98,7 +118,7 @@ export const branchNavigationConfig: NavigationTree[] = [
     {
         key: 'my-org',
         path: '/branch/myorg',
-        title: 'Mening tashkilotim', // Updated
+        title: 'Mening tashkilotim',
         translateKey: 'menu.myOrganization',
         icon: 'hi-outline-office-building',
         type: NAV_ITEM_TYPE_ITEM,
@@ -108,7 +128,7 @@ export const branchNavigationConfig: NavigationTree[] = [
     {
         key: 'branches',
         path: '/branch/mybranch',
-        title: 'Filiallar', // Updated
+        title: 'Filiallar',
         translateKey: 'menu.branches',
         icon: 'hi-outline-template',
         type: NAV_ITEM_TYPE_ITEM,
@@ -118,9 +138,20 @@ export const branchNavigationConfig: NavigationTree[] = [
     {
         key: 'branch-workers',
         path: '/branch/workers',
-        title: 'Ishchilar', // Updated
+        title: 'Ishchilar',
         translateKey: 'menu.workers',
         icon: 'hi-outline-users',
+        type: NAV_ITEM_TYPE_ITEM,
+        authority: [],
+        subMenu: [],
+    },
+    // --- YANGI: IMZOLOVCHILAR (BRANCH DIRECTOR) ---
+    {
+        key: 'signers',
+        path: '/signers',
+        title: 'Imzolovchilar',
+        translateKey: 'menu.signers',
+        icon: 'hi-outline-pencil-alt',
         type: NAV_ITEM_TYPE_ITEM,
         authority: [],
         subMenu: [],
@@ -128,12 +159,12 @@ export const branchNavigationConfig: NavigationTree[] = [
     ...commonMailItems,
 ]
 
-// 4. Admin Navigation (Role 30)
+// 4. Admin / Organization Director Navigation (Role 30)
 export const adminNavigationConfig: NavigationTree[] = [
     {
         key: 'organization',
         path: '/organization/myorg',
-        title: 'Tashkilot', // Updated
+        title: 'Tashkilot',
         translateKey: 'menu.organization',
         icon: 'hi-outline-office-building',
         type: NAV_ITEM_TYPE_ITEM,
@@ -143,7 +174,7 @@ export const adminNavigationConfig: NavigationTree[] = [
     {
         key: 'branches',
         path: '/organization/organizationbranches',
-        title: 'Filiallar', // Updated
+        title: 'Filiallar',
         translateKey: 'menu.branches',
         icon: 'hi-outline-template',
         type: NAV_ITEM_TYPE_ITEM,
@@ -153,7 +184,7 @@ export const adminNavigationConfig: NavigationTree[] = [
     {
         key: 'organization-workers',
         path: '/organization/workers',
-        title: 'Ishchilar', // Updated
+        title: 'Ishchilar',
         translateKey: 'menu.workers',
         icon: 'hi-outline-users',
         type: NAV_ITEM_TYPE_ITEM,
@@ -163,9 +194,20 @@ export const adminNavigationConfig: NavigationTree[] = [
     {
         key: 'unhandled-users',
         path: '/unhandled/users',
-        title: 'Biriktirilmagan ishchilar', // Updated
+        title: 'Biriktirilmagan ishchilar',
         translateKey: 'menu.unhandledWorkers',
         icon: 'hi-outline-user-add',
+        type: NAV_ITEM_TYPE_ITEM,
+        authority: [],
+        subMenu: [],
+    },
+    // --- YANGI: IMZOLOVCHILAR (ORGANIZATION DIRECTOR) ---
+    {
+        key: 'signers',
+        path: '/signers',
+        title: 'Imzolovchilar',
+        translateKey: 'menu.signers',
+        icon: 'hi-outline-pencil-alt',
         type: NAV_ITEM_TYPE_ITEM,
         authority: [],
         subMenu: [],

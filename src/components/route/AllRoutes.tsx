@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense } from 'react' // 👈 Import Suspense manually
 import { protectedRoutes, publicRoutes } from '@/configs/routes.config'
+import { commonRoutes } from '@/configs/routes.config/routes.config'
 import appConfig from '@/configs/app.config'
 import AppRoute from './AppRoute'
 import PublicRoute from './PublicRoute'
@@ -11,11 +13,9 @@ const { authenticatedEntryPath } = appConfig
 const AllRoutes = () => {
     return (
         <Routes>
-            {/* --- Public Routes (Sign In, Sign Up, etc.) --- */}
+            {/* --- Public Routes --- */}
             {publicRoutes.map((route) => {
-                // ✅ SAFETY CHECK: If the route is empty/undefined, ignore it.
                 if (!route) return null
-
                 return (
                     <Route
                         key={route.key}
@@ -31,7 +31,27 @@ const AllRoutes = () => {
                 )
             })}
 
-            {/* --- Protected Routes (Dashboard, etc.) --- */}
+            {/* --- ✅ COMMON ROUTES (The Fix) --- */}
+            {/* We bypass 'AppRoute' and render the component directly with Suspense. */}
+            {/* This strips away any hidden Sidebar/Layout logic in AppRoute. */}
+            {commonRoutes &&
+                commonRoutes.map((route) => {
+                    if (!route) return null
+                    const Component = route.component // Assign to a capitalized variable
+                    return (
+                        <Route
+                            key={route.key}
+                            path={route.path}
+                            element={
+                                <Suspense fallback={<div>Loading...</div>}>
+                                    <Component />
+                                </Suspense>
+                            }
+                        />
+                    )
+                })}
+
+            {/* --- Protected Routes --- */}
             <Route path="/" element={<ProtectedRoute />}>
                 <Route
                     path="/"
@@ -39,9 +59,7 @@ const AllRoutes = () => {
                 />
 
                 {protectedRoutes.map((route, index) => {
-                    // ✅ SAFETY CHECK: If the route is empty/undefined, ignore it.
                     if (!route) return null
-
                     return (
                         <Route
                             key={route.key + index}

@@ -11,6 +11,7 @@ console.log('🔌 Store Loaded. API URL:', BASE_URL)
 const publicApiConfig = {
     headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true', // Added for Ngrok
     },
 }
 
@@ -28,7 +29,6 @@ interface UserProfile {
     role: string
 }
 
-// Defined locally to avoid import errors
 interface LoginPayload {
     phone: string
     password: string
@@ -122,7 +122,7 @@ export const useAccountStore = create<AccountState>()(
                 try {
                     const response = await axios.get(`${BASE_URL}/user/me`, {
                         headers: {
-                            ...publicApiConfig.headers,
+                            ...publicApiConfig.headers, // Includes ngrok header
                             Authorization: `Bearer ${token}`,
                         },
                     })
@@ -220,14 +220,30 @@ export const useAccountStore = create<AccountState>()(
             },
 
             logout: () => {
-                set({ user: null })
+                // Clear both user token AND profile data
+                set({
+                    user: null,
+                    userProfile: {
+                        fullName: '',
+                        phone: '',
+                        address: '',
+                        pinfl: '',
+                        id: 0,
+                        role: '',
+                    },
+                })
                 localStorage.removeItem('account-storage')
             },
         }),
         {
             name: 'account-storage',
             storage: createJSONStorage(() => localStorage),
-            partialize: (state) => ({ user: state.user }),
+
+            // FIX: We now allow 'userProfile' to be saved to localStorage
+            partialize: (state) => ({
+                user: state.user,
+                userProfile: state.userProfile,
+            }),
         },
     ),
 )

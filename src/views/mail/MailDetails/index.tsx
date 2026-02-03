@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom' // 👈 Import these
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useMailStore } from '@/store/mailStore'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
@@ -8,7 +8,14 @@ import Dialog from '@/components/ui/Dialog'
 import Loading from '@/components/shared/Loading'
 import Notification from '@/components/ui/Notification'
 import toast from '@/components/ui/toast'
-import { HiDownload, HiPencil, HiXCircle } from 'react-icons/hi'
+import {
+    HiDownload,
+    HiPencil,
+    HiXCircle,
+    HiCheckCircle,
+    HiClock,
+    HiUserGroup,
+} from 'react-icons/hi'
 
 // API Base URL
 const BASE_URL =
@@ -31,7 +38,7 @@ const getToken = () => {
 
 const MailDetails = () => {
     // 1. CAPTURE DATA FROM URL
-    const { id } = useParams() // 👈 Gets "16"
+    const { id } = useParams()
     const [searchParams] = useSearchParams()
     const uid = searchParams.get('uid') || id
 
@@ -56,19 +63,24 @@ const MailDetails = () => {
     // --- Helpers ---
     const formatDate = (dateStr: string) => {
         if (!dateStr) return 'mavjud emas'
-        return new Date(dateStr).toLocaleString('uz-UZ')
+        return new Date(dateStr).toLocaleString('uz-UZ', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        })
     }
 
     // --- Fetching ---
     useEffect(() => {
         const loadData = async () => {
-            // Check if we have UID (We prioritize UID for fetching details)
             if (!uid) {
                 setDetailsLoading(false)
                 return
             }
 
-            // 1. Fetch Details using UID (TD16)
+            // 1. Fetch Details
             const data = await fetchMailDetails(uid)
             if (data) setMail(data)
             setDetailsLoading(false)
@@ -93,7 +105,6 @@ const MailDetails = () => {
                 setPdfUrl(url)
             } catch (error) {
                 console.error(error)
-                // Optional: Toast error here
             } finally {
                 setPdfLoading(false)
             }
@@ -101,7 +112,6 @@ const MailDetails = () => {
 
         loadData()
 
-        // Cleanup blobs on unmount
         return () => {
             if (pdfUrl) window.URL.revokeObjectURL(pdfUrl)
             if (receiptPdfUrl) window.URL.revokeObjectURL(receiptPdfUrl)
@@ -110,7 +120,6 @@ const MailDetails = () => {
     }, [uid])
 
     // --- Handlers ---
-
     const handleDownloadReceipt = async () => {
         if (!mail) return
         setIsDownloadingReceipt(true)
@@ -130,7 +139,7 @@ const MailDetails = () => {
             const blob = await response.blob()
             const url = window.URL.createObjectURL(blob)
 
-            // 1. Auto Download
+            // Auto Download
             const link = document.createElement('a')
             link.href = url
             link.download = `${mail.uid}_receipt.pdf`
@@ -138,9 +147,8 @@ const MailDetails = () => {
             link.click()
             document.body.removeChild(link)
 
-            // 2. Show in Modal
             setReceiptPdfUrl(url)
-            setShowReceiptModal(true)
+            // setShowReceiptModal(true) // Optional: Open modal if preferred
 
             toast.push(
                 <Notification type="success" title="Muvaffaqiyatli">
@@ -204,12 +212,6 @@ const MailDetails = () => {
                         Uyda yo'q
                     </Tag>
                 )
-            case 'DidntAppearOnNotice':
-                return (
-                    <Tag className="bg-gray-100 text-gray-600 border-0">
-                        Kelilmadi
-                    </Tag>
-                )
             default:
                 return (
                     <Tag className="bg-orange-100 text-orange-600 border-0">
@@ -219,6 +221,57 @@ const MailDetails = () => {
         }
     }
 
+    // --- NEW: Render Signers List ---
+    const renderSigners = (signers: any[]) => {
+        if (!signers || signers.length === 0) return null
+
+        return (
+            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 className="font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                    <HiUserGroup className="text-xl text-indigo-500" />
+                    Tasdiqlovchilar (Imzolovchilar)
+                </h4>
+                <div className="flex flex-col gap-3">
+                    {signers.map((signer, index) => (
+                        <div
+                            key={index}
+                            className={`flex items-start gap-3 p-3 rounded-lg border ${
+                                signer.hasSigned
+                                    ? 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-800'
+                                    : 'bg-gray-50 border-gray-100 dark:bg-gray-800 dark:border-gray-700'
+                            }`}
+                        >
+                            <div className="mt-1">
+                                {signer.hasSigned ? (
+                                    <HiCheckCircle className="text-green-500 text-xl" />
+                                ) : (
+                                    <HiClock className="text-amber-500 text-xl" />
+                                )}
+                            </div>
+                            <div>
+                                <div className="font-semibold text-gray-700 dark:text-gray-200">
+                                    {signer.userFullName}
+                                </div>
+                                <div className="text-xs mt-1">
+                                    {signer.hasSigned ? (
+                                        <span className="text-green-600 font-medium">
+                                            Imzolangan:{' '}
+                                            {formatDate(signer.signedAt)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-amber-600 font-medium animate-pulse">
+                                            Kutilmoqda...
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
     if (detailsLoading) return <Loading loading={true} />
     if (!mail) return <div className="p-4 text-center">Ma'lumot topilmadi</div>
 
@@ -226,9 +279,19 @@ const MailDetails = () => {
         <div className="h-full">
             {/* --- TOP CARD: DETAILS --- */}
             <Card className="mb-6" bodyClass="p-6">
-                <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-white">
-                    {mail.uid}
-                </h2>
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                            {mail.uid}
+                            {/* Show Overall Pending Status if applicable */}
+                            {mail.isPendingSignature && (
+                                <Tag className="bg-amber-100 text-amber-600 border-0">
+                                    Imzolanish jarayonida
+                                </Tag>
+                            )}
+                        </h2>
+                    </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                     {/* Data Fields */}
@@ -236,7 +299,7 @@ const MailDetails = () => {
                         <div className="text-gray-500 font-medium mb-1">
                             Qabul qiluvchi:
                         </div>
-                        <div className="font-bold text-gray-800 dark:text-gray-100">
+                        <div className="font-bold text-gray-800 dark:text-gray-100 text-base">
                             {mail.receiverName}
                         </div>
                     </div>
@@ -277,14 +340,19 @@ const MailDetails = () => {
                             Holat:
                         </div>
                         {!mail.isSend ? (
-                            <Tag className="bg-orange-100 text-orange-600 border-0">
-                                Yuborilmagan
+                            <Tag className="bg-gray-100 text-gray-600 border-0">
+                                {mail.isPendingSignature
+                                    ? 'Imzolanish kutilmoqda'
+                                    : 'Qoralama (Yuborilmagan)'}
                             </Tag>
                         ) : (
                             renderPerformStatus(mail.ActivePerform)
                         )}
                     </div>
                 </div>
+
+                {/* --- RENDER SIGNERS HERE --- */}
+                {renderSigners(mail.signers)}
 
                 <div className="border-t border-gray-200 dark:border-gray-700 my-6"></div>
 
@@ -302,7 +370,6 @@ const MailDetails = () => {
                     ) : (
                         <Button
                             variant="solid"
-                            // 3. NAVIGATE TO EDIT PAGE (Using the ID and UID)
                             onClick={() =>
                                 navigate(
                                     `/mail/edit/${mail.uid.slice(2)}?uid=${mail.uid}`,

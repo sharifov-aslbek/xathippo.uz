@@ -5,7 +5,9 @@ import {
     HiOutlinePlus,
     HiOutlineDocumentText,
     HiOutlineIdentification,
+    HiOutlineDownload,
 } from 'react-icons/hi'
+// ❌ REMOVED: import * as XLSX from 'xlsx'
 
 import Table from '@/components/ui/Table'
 const { Tr, Th, Td, THead, TBody } = Table
@@ -82,7 +84,8 @@ const SentMails = () => {
     const navigate = useNavigate()
 
     // Store
-    const { mails, isLoading, getAllMails } = useMailStore()
+    // ✨ ADDED: exportExcel
+    const { mails, isLoading, getAllMails, exportExcel } = useMailStore()
     const token = useAccountStore((state) => state.userProfile?.token)
 
     // --- State ---
@@ -91,6 +94,9 @@ const SentMails = () => {
 
     const [startDate, setStartDate] = useState<Date | null>(null)
     const [endDate, setEndDate] = useState<Date | null>(null)
+
+    // ✨ ADDED: Export loading state
+    const [isExporting, setIsExporting] = useState(false)
 
     // --- PDF Modal State ---
     const [pdfModalOpen, setPdfModalOpen] = useState(false)
@@ -127,40 +133,86 @@ const SentMails = () => {
         return date ? dayjs(date).format('YYYY-MM-DD') : undefined
     }
 
+    // --- ✨ API Excel Export (Sent Mails) ---
+    const handleExportExcel = async () => {
+        setIsExporting(true)
+        try {
+            // Use current date filters
+            const start = formatDate(startDate)
+            const end = formatDate(endDate)
+
+            const blob = await exportExcel({
+                startDate: start,
+                endDate: end,
+                isSend: true, // 🔒 FORCED: Always true for Sent Mails page
+            })
+
+            if (blob) {
+                // Create download link
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `TezDoc_Yuborilganlar_${dayjs().format('DD_MM_YYYY_HH_mm')}.xlsx`
+                document.body.appendChild(link)
+                link.click()
+
+                // Cleanup
+                link.remove()
+                window.URL.revokeObjectURL(url)
+
+                toast.push(
+                    <Notification type="success">
+                        Fayl muvaffaqiyatli tayyorlandi
+                    </Notification>,
+                )
+            } else {
+                toast.push(
+                    <Notification type="warning">
+                        Faylni yuklab bo'lmadi
+                    </Notification>,
+                )
+            }
+        } catch (error) {
+            console.error(error)
+            toast.push(
+                <Notification type="danger">
+                    Excel yuklashda xatolik
+                </Notification>,
+            )
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     // --- API Fetch ---
     const fetchData = async () => {
         await getAllMails({
             startDate: formatDate(startDate),
             endDate: formatDate(endDate),
-            isSend: true,
+            isSend: true, // Always true for this page
         })
     }
 
-    // Watchers
     useEffect(() => {
         fetchData()
     }, [startDate, endDate])
 
-    // --- Client-Side Filtering ---
+    // --- Client-Side Filtering (Visual Only) ---
     const filteredMails = useMemo(() => {
         if (!mails) return []
         return mails.filter((item: any) => {
-            // 1. Filter by ID
             if (filterId) {
                 const id = item.uid?.toLowerCase() || ''
                 if (!id.includes(filterId.toLowerCase().trim())) {
                     return false
                 }
             }
-
-            // 2. Filter by Name (Receiver)
             if (filterName) {
                 const name = item.receiverName?.toLowerCase() || ''
                 if (!name.includes(filterName.toLowerCase().trim())) {
                     return false
                 }
             }
-
             return true
         })
     }, [mails, filterId, filterName])
@@ -198,7 +250,6 @@ const SentMails = () => {
             <Card className="mb-4 border border-gray-200 dark:border-gray-700 shadow-sm rounded-xl">
                 <div className="flex flex-col lg:flex-row gap-4 justify-between items-end lg:items-center">
                     <div className="flex flex-wrap gap-4 items-center w-full lg:w-auto">
-                        {/* Start Date */}
                         <div className="w-full sm:w-40">
                             <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                                 Sana (dan)
@@ -211,7 +262,6 @@ const SentMails = () => {
                             />
                         </div>
 
-                        {/* End Date */}
                         <div className="w-full sm:w-40">
                             <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                                 Sana (gacha)
@@ -226,7 +276,6 @@ const SentMails = () => {
 
                         <div className="hidden lg:block h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1"></div>
 
-                        {/* ID Input */}
                         <div className="w-full sm:w-40">
                             <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                                 ID raqam
@@ -242,13 +291,12 @@ const SentMails = () => {
                             />
                         </div>
 
-                        {/* Name Input */}
                         <div className="w-full sm:w-56">
                             <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">
                                 Qabul qiluvchi
                             </label>
                             <Input
-                                placeholder="Ism bo'yicha qidirish..."
+                                placeholder="Ism bo'yicha..."
                                 prefix={<HiOutlineSearch className="text-lg" />}
                                 value={filterName}
                                 onChange={(e) => setFilterName(e.target.value)}
@@ -258,7 +306,18 @@ const SentMails = () => {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
+                        {/* ✨ UPDATED EXCEL BUTTON */}
+                        <Button
+                            variant="twoTone"
+                            color="emerald-600"
+                            size="sm"
+                            icon={<HiOutlineDownload />}
+                            loading={isExporting}
+                            onClick={handleExportExcel}
+                        >
+                            Excel
+                        </Button>
                         <Button
                             variant="solid"
                             size="sm"
@@ -326,7 +385,6 @@ const SentMails = () => {
                                     <Td className="font-mono text-gray-500 w-[120px]">
                                         {row.uid}
                                     </Td>
-                                    {/* 👇 UPDATED: Navigate on Click */}
                                     <Td>
                                         <span
                                             className="font-medium text-blue-600 hover:underline cursor-pointer"
@@ -339,8 +397,10 @@ const SentMails = () => {
                                             {row.receiverName}
                                         </span>
                                     </Td>
-                                    <Td>{row.receiverAddress}</Td>
-                                    <Td>
+                                    <Td className="text-xs">
+                                        {row.receiverAddress}
+                                    </Td>
+                                    <Td className="text-xs">
                                         {dayjs(row.createdAt).format(
                                             'DD.MM.YYYY',
                                         )}
@@ -355,7 +415,6 @@ const SentMails = () => {
                 </Table>
             </Card>
 
-            {/* --- PDF Viewer Modal --- */}
             <Dialog
                 isOpen={pdfModalOpen}
                 onClose={() => setPdfModalOpen(false)}

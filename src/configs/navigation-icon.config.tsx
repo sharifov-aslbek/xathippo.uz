@@ -96,6 +96,8 @@ import {
     PiBuildingsDuotone,
     PiGitBranchDuotone,
     PiUsersThreeDuotone,
+    PiCopyDuotone,
+    PiPenNibDuotone, // Added for Signers (Imzolovchilar)
 } from 'react-icons/pi'
 import type { JSX } from 'react'
 
@@ -201,9 +203,6 @@ const navigationIcon: NavigationIcons = {
     changeLog: <PiCodeDuotone />,
 
     // --- YOUR CUSTOM ICONS MAPPING ---
-    // These keys match what we wrote in roleNavigation.config.ts
-    // We map them to the correct Phosphor (Pi) icons here.
-
     'hi-outline-document-add': <PiFilePdfDuotone />, // Create PDF
     'hi-outline-folder': <PiFolderPlusDuotone />, // Create Registry
     'hi-outline-check-circle': <PiCheckCircleDuotone />, // Created
@@ -214,6 +213,11 @@ const navigationIcon: NavigationIcons = {
     'hi-outline-users': <PiUsersThreeDuotone />, // Workers
     'hi-outline-shield-check': <PiShieldCheckDuotone />, // Admin Org
     'hi-outline-user-add': <PiUserPlusDuotone />, // Unhandled Workers
+    'hi-outline-book-open': <PiBookDuotone />,
+    'hi-outline-document-text': <PiCopyDuotone />, // Shablon (Template)
+
+    // --- NEW: IMZOLOVCHILAR (Signers) ---
+    'hi-outline-pencil-alt': <PiPenNibDuotone />,
 }
 
 export default navigationIcon

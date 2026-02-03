@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { FormItem, FormContainer } from '@/components/ui/Form'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -12,11 +12,18 @@ import {
     HiOutlineTrash,
     HiOutlineDocumentText,
 } from 'react-icons/hi'
-import { Formik, Form, Field, FieldProps } from 'formik'
+import { Formik, Form, Field, FieldProps, useFormikContext } from 'formik'
 import * as Yup from 'yup'
 import axios from 'axios'
 import { useMailStore } from '@/store/mailStore'
 import { useAccountStore } from '@/store/accountStore'
+import { useOrganizationStore } from '@/store/organizationStore'
+
+// --- Constants ---
+const ROLE_USER = 0
+const ROLE_WORKER = 10
+const ROLE_BRANCH_DIRECTOR = 20
+const ROLE_ADMIN = 30 // Organization Director
 
 // --- Types ---
 type Option = {
@@ -24,21 +31,52 @@ type Option = {
     label: string
 }
 
-// --- Validation Schema (Uzbek Messages) ---
-const validationSchema = Yup.object().shape({
-    recipient: Yup.string().required('Qabul qiluvchi kiritilishi shart'),
-    address: Yup.string().required('Manzil kiritilishi shart'),
-    region: Yup.number().required('Viloyat tanlanishi shart').nullable(),
-    area: Yup.number().required('Tuman tanlanishi shart').nullable(),
-    file: Yup.mixed().required('Fayl yuklanishi shart'),
-})
+// --- Helper Component for Auto-Selection ---
+// Selects the first organization automatically if available
+const AutoSelectOrganization = ({
+    organizations,
+    role,
+}: {
+    organizations: any[]
+    role: number
+}) => {
+    const { setFieldValue } = useFormikContext()
+
+    useEffect(() => {
+        // Run for Worker, Director, and Admin
+        if (
+            [ROLE_WORKER, ROLE_BRANCH_DIRECTOR, ROLE_ADMIN].includes(role) &&
+            organizations.length > 0
+        ) {
+            setFieldValue('organizationId', organizations[0].id)
+        }
+    }, [organizations, role, setFieldValue])
+
+    return null
+}
 
 const CreatePdf = () => {
-    // Store
+    // --- Stores ---
     const { createMail, isLoading } = useMailStore()
-    const token = useAccountStore((state) => state.userProfile?.token)
 
-    // Local Data State
+    // Account Store
+    const userProfile = useAccountStore((state) => state.userProfile)
+    const token = useAccountStore((state) => state.user?.token)
+    const role = Number(userProfile?.role || 0)
+
+    // Organization Store
+    const {
+        myOrganizations,
+        myBranches, // For Workers
+        organizationBranches, // For Org Directors
+        myBranch, // For Branch Directors
+        fetchMyOrganizations,
+        fetchMyBranches,
+        fetchMyOrganizationBranches,
+        fetchMyBranch,
+    } = useOrganizationStore()
+
+    // --- Local State ---
     const [regions, setRegions] = useState<Option[]>([])
     const [areas, setAreas] = useState<Option[]>([])
     const [loadingRegions, setLoadingRegions] = useState(false)
@@ -47,18 +85,39 @@ const CreatePdf = () => {
     const BASE_URL =
         import.meta.env.VITE_BASE_URL || 'https://tezdoc.kcloud.uz/api'
 
-    // Helper: Headers
+    // --- Validation Schema ---
+    const validationSchema = Yup.object().shape({
+        recipient: Yup.string().required('Qabul qiluvchi kiritilishi shart'),
+        address: Yup.string().required('Manzil kiritilishi shart'),
+        region: Yup.number().required('Viloyat tanlanishi shart').nullable(),
+        area: Yup.number().required('Tuman tanlanishi shart').nullable(),
+        file: Yup.mixed().required('Fayl yuklanishi shart'),
+
+        // Conditional Validation: Employees (Worker/Director/Admin)
+        organizationId: [
+            ROLE_WORKER,
+            ROLE_BRANCH_DIRECTOR,
+            ROLE_ADMIN,
+        ].includes(role)
+            ? Yup.number().required('Tashkilot tanlanishi shart').nullable()
+            : Yup.mixed().notRequired(),
+        branchId: [ROLE_WORKER, ROLE_BRANCH_DIRECTOR, ROLE_ADMIN].includes(role)
+            ? Yup.number().required('Filial tanlanishi shart').nullable()
+            : Yup.mixed().notRequired(),
+
+        // Validation: User (UI only)
+        senderName: Yup.string().nullable(),
+    })
+
+    // --- Helpers ---
     const getHeaders = () => {
         let authToken = token
-        // Helper logic to grab token from localStorage if missing in state
         if (!authToken) {
             try {
                 const local = localStorage.getItem('account-storage')
                 if (local) {
                     const parsed = JSON.parse(local)
-                    authToken =
-                        parsed?.state?.user?.token ||
-                        parsed?.state?.userProfile?.token
+                    authToken = parsed?.state?.user?.token
                 }
             } catch (e) {
                 console.error(e)
@@ -71,31 +130,50 @@ const CreatePdf = () => {
         }
     }
 
-    // 1. Fetch Regions
+    // --- Effects ---
     useEffect(() => {
-        const fetchRegions = async () => {
+        const initData = async () => {
+            // 1. Fetch Regions
             setLoadingRegions(true)
             try {
                 const response = await axios.get(`${BASE_URL}/region`, {
                     headers: getHeaders(),
                 })
                 if (response.data?.code === 200) {
-                    const options = response.data.data.map((r: any) => ({
-                        value: r.id,
-                        label: r.name,
-                    }))
-                    setRegions(options)
+                    setRegions(
+                        response.data.data.map((r: any) => ({
+                            value: r.id,
+                            label: r.name,
+                        })),
+                    )
                 }
             } catch (error) {
-                console.error('Viloyatlarni yuklashda xatolik', error)
+                console.error(error)
             } finally {
                 setLoadingRegions(false)
             }
-        }
-        fetchRegions()
-    }, [])
 
-    // 2. Fetch Areas
+            // 2. Fetch Organization Data based on Role
+            if (
+                [ROLE_WORKER, ROLE_BRANCH_DIRECTOR, ROLE_ADMIN].includes(role)
+            ) {
+                // Everyone needs Organization info
+                fetchMyOrganizations()
+
+                // Fetch specific branch info
+                if (role === ROLE_WORKER) {
+                    fetchMyBranches()
+                } else if (role === ROLE_BRANCH_DIRECTOR) {
+                    fetchMyBranch()
+                } else if (role === ROLE_ADMIN) {
+                    fetchMyOrganizationBranches()
+                }
+            }
+        }
+        initData()
+    }, [role])
+
+    // Fetch Areas
     const fetchAreas = async (regionId: number) => {
         setLoadingAreas(true)
         try {
@@ -104,23 +182,23 @@ const CreatePdf = () => {
                 { headers: getHeaders() },
             )
             if (response.data?.code === 200) {
-                const options = response.data.data.areas.map((a: any) => ({
-                    value: a.id,
-                    label: a.name,
-                }))
-                setAreas(options)
+                setAreas(
+                    response.data.data.areas.map((a: any) => ({
+                        value: a.id,
+                        label: a.name,
+                    })),
+                )
             } else {
                 setAreas([])
             }
         } catch (error) {
-            console.error('Tumanlarni yuklashda xatolik', error)
             setAreas([])
         } finally {
             setLoadingAreas(false)
         }
     }
 
-    // 3. Submit Handler
+    // --- Submit Handler ---
     const handleSubmit = async (values: any, { resetForm }: any) => {
         const formData = new FormData()
         formData.append('ReceiverName', values.recipient)
@@ -128,9 +206,20 @@ const CreatePdf = () => {
         formData.append('PagesCount', '1')
         formData.append('RegionId', values.region?.toString() || '')
         formData.append('AreaId', values.area?.toString() || '')
-        formData.append('BranchId', '')
-        formData.append('OrganizationId', '')
         formData.append('PdfFile', values.file)
+
+        // Logic: Role Based Append
+        if ([ROLE_WORKER, ROLE_BRANCH_DIRECTOR, ROLE_ADMIN].includes(role)) {
+            formData.append(
+                'OrganizationId',
+                values.organizationId?.toString() || '',
+            )
+            formData.append('BranchId', values.branchId?.toString() || '')
+        } else {
+            // ROLE_USER (0)
+            formData.append('OrganizationId', '')
+            formData.append('BranchId', '')
+        }
 
         const success = await createMail(formData)
 
@@ -151,14 +240,43 @@ const CreatePdf = () => {
         }
     }
 
-    // --- Styling Constants ---
+    // --- Options Preparation ---
+    const orgOptions = useMemo(() => {
+        return myOrganizations.map((org) => ({
+            value: org.id,
+            label: org.fullName || org.name,
+        }))
+    }, [myOrganizations])
+
+    // Dynamic Branch Options based on Role
+    const branchOptions = useMemo(() => {
+        let sourceData: any[] = []
+
+        if (role === ROLE_WORKER) {
+            sourceData = myBranches
+        } else if (role === ROLE_BRANCH_DIRECTOR) {
+            // Ensure single object is wrapped in array
+            sourceData = myBranch
+                ? Array.isArray(myBranch)
+                    ? myBranch
+                    : [myBranch]
+                : []
+        } else if (role === ROLE_ADMIN) {
+            sourceData = organizationBranches
+        }
+
+        return sourceData.map((br) => ({
+            value: br.id,
+            label: br.name,
+        }))
+    }, [role, myBranches, myBranch, organizationBranches])
+
     const inputClass =
         '!border !border-gray-300 focus:!border-indigo-500 !bg-white dark:!bg-gray-800 dark:!border-gray-600 rounded-lg h-11'
 
     return (
         <div className="flex justify-center w-full p-4">
             <div className="w-full max-w-full">
-                {/* Header Section */}
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
                         PDF fayldan hujjat yaratish
@@ -169,15 +287,18 @@ const CreatePdf = () => {
                     </p>
                 </div>
 
-                {/* Form Card */}
                 <Card className="shadow-sm border border-gray-200 dark:border-gray-700 rounded-2xl">
                     <Formik
+                        enableReinitialize={true}
                         initialValues={{
                             recipient: '',
                             address: '',
                             region: null,
                             area: null,
                             file: null,
+                            organizationId: null,
+                            branchId: null,
+                            senderName: userProfile?.fullName || '',
                         }}
                         validationSchema={validationSchema}
                         onSubmit={handleSubmit}
@@ -185,14 +306,115 @@ const CreatePdf = () => {
                         {({ values, setFieldValue, errors, touched }) => (
                             <Form>
                                 <FormContainer>
+                                    {/* Auto Select Logic Helper */}
+                                    <AutoSelectOrganization
+                                        organizations={myOrganizations}
+                                        role={role}
+                                    />
+
                                     <div className="flex flex-col gap-6 p-2">
-                                        {/* Recipient Input */}
+                                        {/* --- 1.A. EMPLOYEES: Org & Branch Inputs --- */}
+                                        {[
+                                            ROLE_WORKER,
+                                            ROLE_BRANCH_DIRECTOR,
+                                            ROLE_ADMIN,
+                                        ].includes(role) && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <FormItem
+                                                    label="Yuboruvchi Tashkilot"
+                                                    invalid={
+                                                        errors.organizationId &&
+                                                        touched.organizationId
+                                                    }
+                                                    errorMessage={
+                                                        errors.organizationId as string
+                                                    }
+                                                >
+                                                    <Select
+                                                        options={orgOptions}
+                                                        placeholder="Tashkilot..."
+                                                        isDisabled={true} // Auto-selected & Disabled
+                                                        value={orgOptions.find(
+                                                            (o) =>
+                                                                o.value ===
+                                                                values.organizationId,
+                                                        )}
+                                                        onChange={(opt: any) =>
+                                                            setFieldValue(
+                                                                'organizationId',
+                                                                opt?.value ||
+                                                                    null,
+                                                            )
+                                                        }
+                                                        className="shadow-sm"
+                                                    />
+                                                </FormItem>
+
+                                                <FormItem
+                                                    label="Yuboruvchi Filial"
+                                                    invalid={
+                                                        errors.branchId &&
+                                                        touched.branchId
+                                                    }
+                                                    errorMessage={
+                                                        errors.branchId as string
+                                                    }
+                                                >
+                                                    <Select
+                                                        options={branchOptions}
+                                                        placeholder="Filialni tanlang"
+                                                        value={branchOptions.find(
+                                                            (o) =>
+                                                                o.value ===
+                                                                values.branchId,
+                                                        )}
+                                                        onChange={(opt: any) =>
+                                                            setFieldValue(
+                                                                'branchId',
+                                                                opt?.value ||
+                                                                    null,
+                                                            )
+                                                        }
+                                                        className="shadow-sm"
+                                                    />
+                                                </FormItem>
+                                            </div>
+                                        )}
+
+                                        {/* --- 1.B. ROLE_USER: Sender Name Input --- */}
+                                        {role === ROLE_USER && (
+                                            <div className="w-full">
+                                                <FormItem
+                                                    label="Yuboruvchi (Siz)"
+                                                    invalid={
+                                                        errors.senderName &&
+                                                        touched.senderName
+                                                    }
+                                                    errorMessage={
+                                                        errors.senderName as string
+                                                    }
+                                                >
+                                                    <Field name="senderName">
+                                                        {({
+                                                            field,
+                                                        }: FieldProps) => (
+                                                            <Input
+                                                                {...field}
+                                                                type="text"
+                                                                placeholder="Yuboruvchi ismi"
+                                                                className={
+                                                                    inputClass
+                                                                }
+                                                            />
+                                                        )}
+                                                    </Field>
+                                                </FormItem>
+                                            </div>
+                                        )}
+
+                                        {/* 2. RECIPIENT */}
                                         <FormItem
-                                            label={
-                                                <span className="font-semibold text-gray-700 dark:text-gray-200">
-                                                    Qabul qiluvchi
-                                                </span>
-                                            }
+                                            label="Qabul qiluvchi"
                                             invalid={
                                                 errors.recipient &&
                                                 touched.recipient
@@ -213,13 +435,9 @@ const CreatePdf = () => {
                                             </Field>
                                         </FormItem>
 
-                                        {/* Address Input */}
+                                        {/* 3. ADDRESS */}
                                         <FormItem
-                                            label={
-                                                <span className="font-semibold text-gray-700 dark:text-gray-200">
-                                                    Manzil
-                                                </span>
-                                            }
+                                            label="Manzil"
                                             invalid={
                                                 errors.address &&
                                                 touched.address
@@ -240,14 +458,10 @@ const CreatePdf = () => {
                                             </Field>
                                         </FormItem>
 
-                                        {/* Region & District Row */}
+                                        {/* 4. REGION & AREA */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <FormItem
-                                                label={
-                                                    <span className="font-semibold text-gray-700 dark:text-gray-200">
-                                                        Viloyat
-                                                    </span>
-                                                }
+                                                label="Viloyat"
                                                 invalid={
                                                     errors.region &&
                                                     touched.region
@@ -286,11 +500,7 @@ const CreatePdf = () => {
                                             </FormItem>
 
                                             <FormItem
-                                                label={
-                                                    <span className="font-semibold text-gray-700 dark:text-gray-200">
-                                                        Tuman
-                                                    </span>
-                                                }
+                                                label="Tuman"
                                                 invalid={
                                                     errors.area && touched.area
                                                 }
@@ -320,13 +530,9 @@ const CreatePdf = () => {
                                             </FormItem>
                                         </div>
 
-                                        {/* File Upload Area */}
+                                        {/* 5. FILE UPLOAD */}
                                         <FormItem
-                                            label={
-                                                <span className="font-semibold text-gray-700 dark:text-gray-200">
-                                                    Hujjat yuklash
-                                                </span>
-                                            }
+                                            label="Hujjat yuklash"
                                             invalid={
                                                 errors.file && touched.file
                                             }
@@ -341,17 +547,16 @@ const CreatePdf = () => {
                                                     if (
                                                         files &&
                                                         files.length > 0
-                                                    ) {
+                                                    )
                                                         setFieldValue(
                                                             'file',
                                                             files[0],
                                                         )
-                                                    } else {
+                                                    else
                                                         setFieldValue(
                                                             'file',
                                                             null,
                                                         )
-                                                    }
                                                 }}
                                             >
                                                 <div className="flex flex-col items-center justify-center">
@@ -419,7 +624,6 @@ const CreatePdf = () => {
                                             </Upload>
                                         </FormItem>
 
-                                        {/* Action Buttons */}
                                         <div className="flex justify-end gap-4 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
                                             <Button
                                                 size="md"

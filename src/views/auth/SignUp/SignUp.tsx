@@ -54,9 +54,9 @@ export const SignUpBase = ({
             {/* HEADER TEXT: Hidden on 'selection' step to avoid duplication */}
             {currentStep !== 'selection' && (
                 <div className="mb-8 text-center">
-                    <h3 className="mb-1">Sign Up</h3>
+                    <h3 className="mb-1">Ro'yxatdan o'tish</h3>
                     <p className="font-semibold heading-text">
-                        Complete your details
+                        Ma'lumotlaringizni to'ldiring
                     </p>
                 </div>
             )}
@@ -78,13 +78,13 @@ export const SignUpBase = ({
 
             {currentStep === 'selection' && (
                 <div className="mt-6 text-center">
-                    <span>Already have an account? </span>
+                    <span>Akauntingiz bormi? </span>
                     <ActionLink
                         to={signInUrl}
                         className="heading-text font-bold"
                         themeColor={false}
                     >
-                        Sign in
+                        Kirish
                     </ActionLink>
                 </div>
             )}

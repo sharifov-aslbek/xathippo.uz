@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { FormItem } from '@/components/ui/Form' // Assuming generic FormItem exists or use div
-import { HiUser, HiOfficeBuilding } from 'react-icons/hi' // Icons
-import Spinner from '@/components/ui/Spinner'
+// Assuming Alert exists in your UI library, adding basic styling fallback if not
+import Alert from '@/components/ui/Alert'
+import { HiUser, HiOfficeBuilding } from 'react-icons/hi'
 
 // --- Types ---
 type RegistrationRole = 'citizen' | 'director' | null
@@ -53,14 +53,14 @@ const SignUpForm = ({
     const selectRole = (role: RegistrationRole) => {
         setCurrentRole(role)
         setCurrentStep('verification')
-        setMessage('') // Clear old errors
+        setMessage('')
     }
 
     // --- API Logic (Citizen) ---
 
     const checkCitizenPinfl = async () => {
         if (citizenModel.pinfl.length !== 14) {
-            setMessage('PINFL must be 14 digits')
+            setMessage("JSHSHIR 14 ta raqamdan iborat bo'lishi kerak")
             return
         }
         setSearchLoading(true)
@@ -81,30 +81,27 @@ const SignUpForm = ({
                 setSearchLoading(false)
             }, 1000)
         } catch (error) {
-            setMessage('User not found or connection error')
+            setMessage('Foydalanuvchi topilmadi yoki aloqa xatosi')
             setSearchLoading(false)
         }
     }
 
     const registerCitizen = async () => {
-        // Simple validation
         if (!citizenModel.phone || !citizenModel.password) {
-            setMessage('Phone and Password are required')
+            setMessage('Telefon va Parol kiritilishi shart')
             return
         }
 
         setIsLoading(true)
         try {
             // REPLACE WITH YOUR API CALL
-            // await api.registerUser(citizenModel)
             console.log('Registering Citizen', citizenModel)
 
-            // Simulate success
             setTimeout(() => {
-                window.location.href = '/' // Redirect
+                window.location.href = '/'
             }, 1000)
         } catch (error) {
-            setMessage('Registration failed')
+            setMessage("Ro'yxatdan o'tishda xatolik")
             setIsLoading(false)
         }
     }
@@ -113,7 +110,7 @@ const SignUpForm = ({
 
     const checkCompanyInn = async () => {
         if (directorModel.inn.length !== 9) {
-            setMessage('INN must be 9 digits')
+            setMessage("STIR (INN) 9 ta raqamdan iborat bo'lishi kerak")
             return
         }
         setSearchLoading(true)
@@ -121,27 +118,24 @@ const SignUpForm = ({
 
         try {
             // REPLACE WITH YOUR API CALL
-            // const data = await api.getCompanyByInn(directorModel.inn)
-
-            // Mocking success
             setTimeout(() => {
                 setDirectorModel((prev) => ({
                     ...prev,
                     companyName: 'ACME LLC',
                     directorName: 'Director John Doe',
-                    directorPinflFromFile: '12345678901234', // Mock PINFL to match against
+                    directorPinflFromFile: '12345678901234',
                 }))
                 setSearchLoading(false)
             }, 1000)
         } catch (error) {
-            setMessage('Company not found')
+            setMessage('Tashkilot topilmadi')
             setSearchLoading(false)
         }
     }
 
     const verifyDirectorPinfl = () => {
         if (directorModel.userPinfl !== directorModel.directorPinflFromFile) {
-            setMessage('Director PINFL does not match company records')
+            setMessage("Direktor JSHSHIR ma'lumotlari mos kelmadi")
             return
         }
         setCurrentStep('account')
@@ -150,7 +144,7 @@ const SignUpForm = ({
 
     const registerDirector = async () => {
         if (!directorModel.phone || !directorModel.password) {
-            setMessage('Phone and Password are required')
+            setMessage('Telefon va Parol kiritilishi shart')
             return
         }
 
@@ -159,12 +153,11 @@ const SignUpForm = ({
             // REPLACE WITH YOUR API CALL
             console.log('Registering Director', directorModel)
 
-            // Simulate success
             setTimeout(() => {
                 window.location.href = '/'
             }, 1000)
         } catch (error) {
-            setMessage('Registration failed')
+            setMessage("Ro'yxatdan o'tishda xatolik")
             setIsLoading(false)
         }
     }
@@ -181,11 +174,9 @@ const SignUpForm = ({
                     <HiUser className="text-2xl text-blue-500" />
                 </div>
                 <div>
-                    <div className="font-bold text-lg heading-text">
-                        Citizen
-                    </div>
+                    <div className="font-bold text-lg heading-text">Fuqaro</div>
                     <div className="text-gray-500 text-sm">
-                        Register as an individual
+                        Jismoniy shaxs sifatida ro'yxatdan o'tish
                     </div>
                 </div>
             </div>
@@ -199,10 +190,10 @@ const SignUpForm = ({
                 </div>
                 <div>
                     <div className="font-bold text-lg heading-text">
-                        Organization
+                        Tashkilot
                     </div>
                     <div className="text-gray-500 text-sm">
-                        Register as a company director
+                        Tashkilot direktori sifatida ro'yxatdan o'tish
                     </div>
                 </div>
             </div>
@@ -214,11 +205,11 @@ const SignUpForm = ({
             {/* Step 1: Check PINFL */}
             <div>
                 <label className="font-semibold mb-2 block text-sm">
-                    PINFL
+                    JSHSHIR (PINFL)
                 </label>
                 <div className="flex gap-2">
                     <Input
-                        placeholder="Enter 14-digit PINFL"
+                        placeholder="14 xonali raqamni kiriting"
                         value={citizenModel.pinfl}
                         onChange={(e: any) =>
                             setCitizenModel({
@@ -234,7 +225,7 @@ const SignUpForm = ({
                         onClick={checkCitizenPinfl}
                         disabled={currentStep === 'account'}
                     >
-                        Check
+                        Tekshirish
                     </Button>
                 </div>
             </div>
@@ -245,7 +236,7 @@ const SignUpForm = ({
                     <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                         <div className="mb-2">
                             <span className="text-xs text-gray-500 uppercase font-bold">
-                                Full Name
+                                To'liq Ism
                             </span>
                             <div className="font-semibold">
                                 {citizenModel.fullName}
@@ -253,7 +244,7 @@ const SignUpForm = ({
                         </div>
                         <div>
                             <span className="text-xs text-gray-500 uppercase font-bold">
-                                Address
+                                Manzil
                             </span>
                             <div className="text-sm">
                                 {citizenModel.address}
@@ -265,7 +256,7 @@ const SignUpForm = ({
 
                     <div>
                         <label className="font-semibold mb-2 block text-sm">
-                            Phone Number
+                            Telefon raqami
                         </label>
                         <Input
                             placeholder="+998..."
@@ -280,11 +271,11 @@ const SignUpForm = ({
                     </div>
                     <div>
                         <label className="font-semibold mb-2 block text-sm">
-                            Password
+                            Parol
                         </label>
                         <Input
                             type="password"
-                            placeholder="Create a password"
+                            placeholder="Parol o'ylab toping"
                             value={citizenModel.password}
                             onChange={(e: any) =>
                                 setCitizenModel({
@@ -302,7 +293,7 @@ const SignUpForm = ({
                         onClick={registerCitizen}
                         disabled={disableSubmit}
                     >
-                        Complete Registration
+                        Ro'yxatdan o'tishni yakunlash
                     </Button>
                 </div>
             )}
@@ -314,11 +305,11 @@ const SignUpForm = ({
             {/* Step 1: Check INN */}
             <div>
                 <label className="font-semibold mb-2 block text-sm">
-                    Company INN
+                    Tashkilot STIR (INN)
                 </label>
                 <div className="flex gap-2">
                     <Input
-                        placeholder="Enter 9-digit INN"
+                        placeholder="9 xonali raqamni kiriting"
                         value={directorModel.inn}
                         onChange={(e: any) =>
                             setDirectorModel({
@@ -334,7 +325,7 @@ const SignUpForm = ({
                         onClick={checkCompanyInn}
                         disabled={!!directorModel.companyName}
                     >
-                        Search
+                        Izlash
                     </Button>
                 </div>
             </div>
@@ -342,12 +333,14 @@ const SignUpForm = ({
             {/* Found Company Info */}
             {directorModel.companyName && (
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-100 dark:border-blue-800 animate-fade-in">
-                    <div className="text-sm text-gray-500">Company Found:</div>
+                    <div className="text-sm text-gray-500">
+                        Tashkilot topildi:
+                    </div>
                     <div className="font-bold text-lg text-blue-600 dark:text-blue-400">
                         {directorModel.companyName}
                     </div>
                     <div className="text-sm mt-2">
-                        Director:{' '}
+                        Direktor:{' '}
                         <span className="font-medium">
                             {directorModel.directorName}
                         </span>
@@ -359,14 +352,15 @@ const SignUpForm = ({
             {directorModel.companyName && currentStep === 'verification' && (
                 <div className="animate-fade-in mt-2">
                     <Alert type="info" className="mb-4">
-                        Please enter the Director's PINFL to verify ownership.
+                        Tashkilot egasi ekanligingizni tasdiqlash uchun Direktor
+                        JSHSHIR raqamini kiriting.
                     </Alert>
                     <label className="font-semibold mb-2 block text-sm">
-                        Director PINFL
+                        Direktor JSHSHIR (PINFL)
                     </label>
                     <div className="flex gap-2">
                         <Input
-                            placeholder="Enter PINFL"
+                            placeholder="JSHSHIR kiriting"
                             value={directorModel.userPinfl}
                             onChange={(e: any) =>
                                 setDirectorModel({
@@ -380,7 +374,7 @@ const SignUpForm = ({
                             color="green-500"
                             onClick={verifyDirectorPinfl}
                         >
-                            Verify
+                            Tasdiqlash
                         </Button>
                     </div>
                 </div>
@@ -390,11 +384,11 @@ const SignUpForm = ({
             {currentStep === 'account' && (
                 <div className="animate-fade-in flex flex-col gap-4 mt-2">
                     <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
-                    <h4 className="font-bold text-lg">Account Details</h4>
+                    <h4 className="font-bold text-lg">Hisob ma'lumotlari</h4>
 
                     <div>
                         <label className="font-semibold mb-2 block text-sm">
-                            Phone Number
+                            Telefon raqami
                         </label>
                         <Input
                             placeholder="+998..."
@@ -409,11 +403,11 @@ const SignUpForm = ({
                     </div>
                     <div>
                         <label className="font-semibold mb-2 block text-sm">
-                            Password
+                            Parol
                         </label>
                         <Input
                             type="password"
-                            placeholder="Create a password"
+                            placeholder="Parol o'ylab toping"
                             value={directorModel.password}
                             onChange={(e: any) =>
                                 setDirectorModel({
@@ -431,7 +425,7 @@ const SignUpForm = ({
                         onClick={registerDirector}
                         disabled={disableSubmit}
                     >
-                        Register Organization
+                        Tashkilotni ro'yxatdan o'tkazish
                     </Button>
                 </div>
             )}
