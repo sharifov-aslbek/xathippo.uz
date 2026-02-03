@@ -5,7 +5,6 @@ import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Upload from '@/components/ui/Upload'
 import Alert from '@/components/ui/Alert'
-import Spinner from '@/components/ui/Spinner'
 import { HiOutlineCloudUpload } from 'react-icons/hi'
 import { Formik, Form, Field } from 'formik'
 import { useTranslation } from 'react-i18next'
@@ -20,6 +19,11 @@ import { useTemplateStore } from '@/store/templateStore'
 import { useAccountStore } from '@/store/accountStore'
 
 const BASE_URL = import.meta.env.VITE_BASE_URL || 'https://tezdoc.kcloud.uz/api'
+
+// --- Constants for Roles ---
+const ROLE_WORKER = 10
+const ROLE_BRANCH_DIRECTOR = 20
+const ROLE_ADMIN = 30
 
 // --- HELPER: Convert Excel Serial Date ---
 const formatExcelDate = (serial: number | string) => {
@@ -41,7 +45,13 @@ const CreateRegistry = () => {
         getTemplates,
         isLoading: isTemplatesLoading,
     } = useTemplateStore()
+
+    // Get Token and Profile to check Role
     const token = useAccountStore((state) => state.user?.token)
+    const userProfile = useAccountStore((state) => state.userProfile)
+
+    // Determine current role
+    const role = Number(userProfile?.role || 0)
 
     // --- Local State ---
     const [excelData, setExcelData] = useState<any[]>([])
@@ -55,26 +65,39 @@ const CreateRegistry = () => {
 
     // Prepare options for Select
     const templateOptions = templates.map((t) => ({
-        value: t.name, // The API expects the Name string
+        value: t.name,
         label: t.name,
     }))
 
     // --- 2. Validation Logic ---
     const validateExcelData = (data: any[]) => {
         const errors: string[] = []
-        // Required columns in Excel
+
+        // Base required columns
         const requiredFields = ['receiver', 'address', 'region', 'area']
+
+        // If role is 10, 20, or 30, 'branch_id' is mandatory
+        if ([ROLE_WORKER, ROLE_BRANCH_DIRECTOR, ROLE_ADMIN].includes(role)) {
+            requiredFields.push('branch_id')
+        }
 
         data.forEach((row, index) => {
             const rowNumber = index + 2 // +2 because Excel starts at 1 and header is 1
+
+            // Skip header-like rows
             if (row.receiver === 'Получатель' || row.receiver === 'Receiver')
                 return
 
+            // Check receiver existence
             if (!row.receiver) {
                 errors.push(`Qator ${rowNumber}: "receiver" ustuni bo'sh`)
             }
 
-            const missingCols = requiredFields.filter((field) => !row[field])
+            // Check missing columns
+            const missingCols = requiredFields.filter((field) => {
+                return row[field] == null || String(row[field]).trim() === ''
+            })
+
             if (missingCols.length > 0) {
                 errors.push(
                     `Qator ${rowNumber}: To'ldirilmagan ustunlar: ${missingCols.join(', ')}`,
@@ -92,14 +115,14 @@ const CreateRegistry = () => {
         )
 
         return cleanRows.map((row) => {
-            // Destructure known columns
-            const { receiver, address, region, area, ...rest } = row
+            // ✨ FIX: Destructure branch_id here so it is NOT included in "...rest" (content)
+            const { receiver, address, region, area, branch_id, ...rest } = row
 
             // Process "rest" columns for Content JSON
             const contentObj: any = {}
             Object.keys(rest).forEach((key) => {
                 let value = rest[key]
-                // Handle Excel dates if needed
+                // Handle Excel dates
                 const dateKeys = [
                     'document_date',
                     'print_date',
@@ -112,14 +135,20 @@ const CreateRegistry = () => {
             })
 
             // Return exact shape for /queue-mails endpoint
-            return {
+            const mailObject: any = {
                 receiver: String(receiver),
-                regionId: Number(region) || 0, // excel 'region' -> api 'regionId'
-                areaId: Number(area) || 0, // excel 'area' -> api 'areaId'
+                regionId: Number(region) || 0,
+                areaId: Number(area) || 0,
                 address: String(address),
-                content: JSON.stringify(contentObj), // The rest as JSON string
-                templateName: templateName, // From dropdown
+                content: JSON.stringify(contentObj),
+                templateName: templateName,
+
+                // ✨ FIX: Map 'branch_id' to 'BranchId' at top level
+                // Only include if it exists (which validation ensures for roles 10,20,30)
+                BranchId: branch_id ? Number(branch_id) : 0,
             }
+
+            return mailObject
         })
     }
 
@@ -146,7 +175,6 @@ const CreateRegistry = () => {
                     if (errors.length > 0) {
                         setValidationErrors(errors)
                     } else {
-                        // Just save raw data here, we transform on submit to get latest templateName
                         setExcelData(jsonData)
                     }
                 }
@@ -169,7 +197,6 @@ const CreateRegistry = () => {
 
         setIsSubmitting(true)
 
-        // Transform data right before sending to capture the selected template
         const payloadMails = transformDataToApiFormat(
             excelData,
             values.templateName,
@@ -200,7 +227,6 @@ const CreateRegistry = () => {
                         {payloadMails.length} ta xat navbatga qo'shildi!
                     </Notification>,
                 )
-                // Optional: navigate to the list page
                 navigate('/mail/draftmails')
             }
         } catch (error: any) {
@@ -337,17 +363,6 @@ const CreateRegistry = () => {
                                         </div>
                                     </Alert>
                                 )}
-
-                                {/*/!* Description (Optional) *!/*/}
-                                {/*<FormItem label="Izoh / Tavsif">*/}
-                                {/*    <Field*/}
-                                {/*        type="text"*/}
-                                {/*        name="description"*/}
-                                {/*        placeholder="Izoh kiritishingiz mumkin..."*/}
-                                {/*        component={Input}*/}
-                                {/*        textArea*/}
-                                {/*    />*/}
-                                {/*</FormItem>*/}
 
                                 {/* Actions */}
                                 <div className="flex justify-end gap-4 mt-2">
